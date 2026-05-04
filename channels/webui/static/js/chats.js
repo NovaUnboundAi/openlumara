@@ -865,6 +865,10 @@ async function updateTokenUsage() {
                 container.classList.remove('active');
                 fill.style.backgroundColor = '#10b981'; // Reset to green
             }
+
+            // 3. Toggle shimmer animation based on streaming state
+            const isStreamingActive = typeof isStreaming !== 'undefined' && isStreaming;
+            container.classList.toggle('shimmer-active', isStreamingActive);
         }
     } catch (e) {
         console.error('Token usage update failed:', e);
