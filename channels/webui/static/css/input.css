@@ -115,7 +115,7 @@ body.token-bar-hidden .input-area {
 #send {
     background: var(--button-bg);
     border: 1px solid var(--accent);
-    color: var(--text-primary);
+    color: var(--bg-primary);
 }
 
 #send.hidden { display: none; }

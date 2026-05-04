@@ -313,7 +313,7 @@
 
 @keyframes toolCallPulse {
     0%, 100% { border-left-color: var(--accent); }
-    50% { border-left-color: var(--accent-light); }
+    50% { border-left-color: var(--accent-glow); }
 }
 
 .tool-call-header {
@@ -323,12 +323,12 @@
     padding: 8px 12px;
     cursor: pointer;
     user-select: none;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--bg-secondary);
     transition: background 0.15s ease;
 }
 
 .tool-call-header:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-tertiary);
 }
 
 .tool-call-toggle {
@@ -379,7 +379,7 @@
     height: 22px;
     padding: 0 6px;
     border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-tertiary);
     color: var(--text-muted);
     font-size: 0.7rem;
     font-weight: 600;
@@ -456,7 +456,7 @@
 
 .tool-call-section {
     padding: 12px 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-color);
 }
 
 .tool-call-section-title {
@@ -478,7 +478,7 @@
     align-items: flex-start;
     gap: 12px;
     padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
     font-size: 0.85rem;
 }
@@ -546,7 +546,7 @@
     white-space: pre-wrap;
     word-break: break-word;
     padding: 8px 10px;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--bg-secondary);
     border-radius: var(--radius-sm);
 }
 
@@ -561,7 +561,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
     font-size: 0.8rem;
     color: var(--text-muted);
@@ -591,7 +591,7 @@
 }
 
 .tool-response-kv:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-secondary);
 }
 
 .tool-response-key {
@@ -620,7 +620,7 @@
 .tool-response-nested {
     margin-left: 10px;
     padding-left: 8px;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 1px solid var(--border-color);
 }
 
 .tool-response-array-item {
@@ -632,7 +632,7 @@
 }
 
 .tool-response-array-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-secondary);
 }
 
 .tool-response-index {
@@ -656,7 +656,7 @@
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
     font-size: 0.8rem;
     cursor: default;
