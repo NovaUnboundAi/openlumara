@@ -164,8 +164,8 @@ class Client(discord.Client):
                             response_obj = self.ai_channel.send_stream({"role": "user", "content": content})
                             response_content = await self._stream_to_discord(response_obj, message.channel)
                         else:
-                            response_content = await self.ai_channel.send({"role": "user", "content": content}, mention_author=self.ai_channel.config.get("use_replies"))
-                            await message.channel.send(response_content.get("content"))
+                            response_content = await self.ai_channel.send({"role": "user", "content": content})
+                            await message.channel.send(response_content.get("content"), mention_author=self.ai_channel.config.get("use_replies"))
 
                         core.log("discord", f"<{message.guild.me.name}> {response_content}")
                     except Exception as e:
