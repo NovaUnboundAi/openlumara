@@ -2240,15 +2240,15 @@ const themes = {
             '--radius-xl': '999px',
 
             // === COLORS (Hot Pink Palette) ===
-            '--bg-primary': '#ffeef5',
-            '--bg-secondary': '#fff0f5',
-            '--bg-tertiary': '#ffd6e7',
+            '--bg-primary': '#ffe2ef',
+            '--bg-secondary': '#ffcbe2',
+            '--bg-tertiary': '#ffd2e6',
             '--bg-message-user': 'linear-gradient(135deg, #ff9ecc 0%, #ff85c0 100%)',
-            '--bg-message-ai': '#ffffff',
+            '--bg-message-ai': '#ffc9dc',
             '--bg-message-announce': 'linear-gradient(135deg, #fff0f5 0%, #ffe0eb 100%)',
             '--bg-message-command': 'linear-gradient(135deg, #ff85c0 0%, #ff69b4 100%)', // Hot Pink
             '--bg-message-command-response': 'linear-gradient(135deg, #ffd6e7 0%, #ffcae0 100%)', // Soft Pink
-            '--bg-input': '#ffffff',
+            '--bg-input': '#ffd3ea',
             '--bg-code': '#fff5f8',
             '--bg-sidebar': '#ffe8f0',
 
@@ -2288,7 +2288,7 @@ const themes = {
             '--shadow-soft': '0 4px 15px rgba(255, 20, 147, 0.15)',
             '--shadow-glow': '0 0 25px var(--accent-glow)',
 
-            '--tool-bg': '#fff0f5',
+            '--tool-bg': '#ffd3ea',
             '--tool-bg-secondary': '#fff5f8',
             '--tool-border': '#ffc8e2',
             '--tool-border-hover': '#ff99cc',
