@@ -69,11 +69,10 @@ class ToolcallManager:
             repaired_tool_calls.append(tool_call)
         return repaired_tool_calls
 
-    async def process(self, tool_calls, assistant_content="", assistant_reasoning="", accumulated_usage=0):
+    async def process(self, tool_calls, assistant_content="", assistant_reasoning=""):
         """
         process tool calls from an API response..
         assistant_content is the "normal" non-toolcall content, the text that the AI wants to say that's not toolcalls
-        accumulated_usage is the total token usage accumulated from parent recursive calls
         """
 
         # this is, once again, a very badly documented thing in openAI's chat completions docs
@@ -179,11 +178,10 @@ class ToolcallManager:
         final_content = []
         final_reasoning = []
         had_recursive_call = False
-        total_tool_usage = accumulated_usage  # Start with accumulated usage from parent calls
 
         try:
             async for token in self.channel.manager.API.send_stream(
-                await self.channel.context.get(end_prompt=True, prevent_recursion=True),
+                await self.channel.context.get(system_prompt=True, end_prompt=False),
                 tools=self.channel.manager.tools
             ):
                 token_type = token.get("type")
@@ -196,6 +194,18 @@ class ToolcallManager:
                     yield token
                 elif token_type in ["tool_call_delta", "tool", "tool_calls"]:
                     yield token
+
+                if token_type == "token_usage":
+                    core.log("tokens", "tool token usage received")
+                    usage = token.get("content")
+                    if usage is not None:
+                        # set the flag so that token counting is always using API data
+                        if not self.channel.context.chat.using_api_token_data:
+                            self.channel.context.chat.using_api_token_data = True
+
+                        self.channel.context.chat.token_usage = usage
+                        # yield it to the frontend so the token bar updates in real-time
+                        yield token
 
                 if token_type == "tool_calls":
                     had_recursive_call = True
@@ -214,21 +224,9 @@ class ToolcallManager:
                     async for sub_token in self.process(
                         repaired_tool_calls if tool_calls else [],
                         assistant_content="".join(final_content),
-                        assistant_reasoning="".join(final_reasoning),
-                        accumulated_usage=total_tool_usage
+                        assistant_reasoning="".join(final_reasoning)
                     ):
                         yield sub_token
-
-                if token_type == "token_usage":
-                    usage = token.get("content")
-                    if usage is not None:
-                        # Accumulate token usage, don't overwrite
-                        # Each API call's token usage should be added to the total
-                        # However, note: later API calls include previous messages in context,
-                        # so their token counts include tokens already counted.
-                        total_tool_usage = max(total_tool_usage, usage)
-                        # Yield it to the frontend so the token bar updates in real-time
-                        yield token
 
             # only add final message if we didn't make a recursive call
             # (the innermost call handles adding the final message)

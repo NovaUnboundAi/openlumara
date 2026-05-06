@@ -199,6 +199,15 @@ class Channel:
         # add user's message to context
         await self.context.chat.add(user_message)
 
+        # estimate tokens used for user message and add to existing token count
+        if self.context.chat.token_usage:
+            # if using API token count
+            user_msg_tokens = await self.context.chat.count_tokens([user_message])
+            self.context.chat.token_usage += user_msg_tokens
+
+            # yield so it updates throughout all channels that display token count
+            yield {"type": "token_usage", "content": self.context.chat.token_usage}
+
         # run module event hooks
         for module_name, module in self.manager.modules.items():
             if hasattr(module, "on_user_message"):
@@ -258,6 +267,11 @@ class Channel:
                 # this is the final token usage count, usually emitted at the end of the stream
                 token_usage = token.get("content")
                 if isinstance(token_usage, int):
+                    # set the flag so that token counting is always using API data
+                    if not self.context.chat.using_api_token_data:
+                        self.context.chat.using_api_token_data = True
+
+                    # cache this so chat.get_token_usage() returns this value
                     self.context.chat.token_usage = token_usage
                 yield token
 
@@ -270,10 +284,6 @@ class Channel:
             assistant_message["reasoning_content"] = "".join(final_reasoning)
 
         await self.context.chat.add(assistant_message)
-
-        # After adding final message, update token usage with local count
-        # since we don't have API token usage for this new context
-        self.context.chat.token_usage = await self.context.chat.count_tokens()
 
         # run module event hooks
         for module_name, module in self.manager.modules.items():

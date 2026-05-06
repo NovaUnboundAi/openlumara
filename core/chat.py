@@ -17,6 +17,7 @@ class Chat:
         self.channel = channel
         self.current = None
         self.current_save_path = os.path.join(core.get_data_path(), f"{self.channel.name}_current_chat")
+        self.using_api_token_data = False # gets instantly set to True upon first receive of token usage data
         self.token_usage = 0 # uses API results to cache last message's token usage
 
         for index in range(len(self.data) - 1, -1, -1):
@@ -103,6 +104,9 @@ class Chat:
         index = len(self.data) - 1
         self._set_current(index)
 
+        self.token_usage = 0
+        self.using_api_token_data = False
+
         self.data.save()
         return True
     async def clear(self):
@@ -114,6 +118,7 @@ class Chat:
         # Reset token_usage since we're clearing the chat
         # API token usage is only valid for the exact context that was sent
         self.token_usage = 0
+        self.using_api_token_data = False
         
         await self.save()
 
@@ -263,6 +268,7 @@ class Chat:
         self.data[self.current]["messages"] = messages
         await self.save()
         return True
+
     async def add(self, message: dict, temporary = False):
         """add message to current chat"""
         if self.current is None:
@@ -281,44 +287,20 @@ class Chat:
         if temporary:
             message["temporary"] = True
 
-        # Reset token_usage since we're modifying the chat
-        # API token usage is only valid for the exact context that was sent
-        self.token_usage = 0
-
-        # Get current token count
-        current_tokens = await self.count_tokens()
-        
-        # Simple estimation for new message tokens
-        # Average English: ~0.75 tokens per word, plus message overhead
-        new_message_tokens = 0
-        if "content" in message and isinstance(message["content"], str):
-            # Rough estimate: 4 chars per token on average for English text
-            content_length = len(message["content"])
-            new_message_tokens += max(1, content_length // 4)
-        
-        # Add overhead for message format
-        new_message_tokens += 4
-        
-        # Trim with estimated total tokens (current + new message)
-        await self.trim(num_tokens=current_tokens + new_message_tokens)
-        
+        await self.trim() # automatically trim chat history
         await self._insert_blank_user_msg(message)
         self.data[self.current]["messages"].append(message)
         index = len(self.data[self.current]["messages"]) - 1
 
         await self.save()
         return index
+
     async def pop(self, index: int = None):
         """pop message from current chat"""
         if self.current is None:
             await self.new()
 
         self.data[self.current]["messages"].pop(index)
-        
-        # Reset token_usage since we're modifying the chat
-        # API token usage is only valid for the exact context that was sent
-        self.token_usage = 0
-        
         index = len(self.data[self.current]["messages"]) - 1
         await self.save()
         return index
@@ -346,7 +328,7 @@ class Chat:
 
         # Calculate current token count if not provided
         if num_tokens is None:
-            num_tokens = await self.count_tokens()
+            num_tokens = await self.get_token_usage()
 
         # Leave a small buffer (5%) to avoid hitting exact limit
         token_buffer = max_tokens * 0.05
@@ -370,13 +352,13 @@ class Chat:
         while messages and (len(messages) > max_messages or num_tokens > effective_max_tokens):
             # Remove the oldest message
             await self.pop(0)
-            
+
             # Update messages and token count
             messages = await self.get()
             if not messages:
                 # All messages removed - this shouldn't happen unless single message exceeds limit
                 break
-                
+
             num_tokens = await self.count_tokens()
 
         # Check if we still have a problem after trimming
@@ -390,17 +372,7 @@ class Chat:
                     "error"
                 )
                 return False
-            elif trimmed_due_to_tokens:
-                await self.channel.announce(
-                    f"Context trimmed due to token limit. Current: {num_tokens}/{max_tokens} tokens.",
-                    "info"
-                )
-            elif trimmed_due_to_messages:
-                await self.channel.announce(
-                    f"Context trimmed due to message limit. Current: {len(messages)}/{max_messages} messages.",
-                    "info"
-                )
-        
+
         return True
 
     async def _insert_blank_user_msg(self, message: dict):
@@ -424,29 +396,29 @@ class Chat:
             await self.add({"role": "user", "content": "[SYSTEM_TICK]"})
         return True
 
+    async def get_token_usage(self):
+        """
+        Returns the chat's current total token usage.
+        Prioritizes the API's data above all,
+        but if not available, will fall back on counting locally using tiktoken
+        """
+        if not self.using_api_token_data:
+            return await self.count_tokens()
+
+        return self.token_usage
+
     async def count_tokens(self, messages: list = None):
         """
-        Counts tokens locally using tiktoken.
-        Used as a fallback if the API doesn't return usage data.
-        
-        Note: This is a conservative estimate. Different models and API providers
-        may count tokens differently. The API's usage.prompt_tokens should
-        be considered the authoritative source when available.
+        Counts token usage locally using tiktoken
         """
-        # if we have API token usage results (happens in core/channel.py),
-        # just return that if we are not asking to count specific messages.
-        if self.token_usage > 0 and messages is None:
-            return self.token_usage
-
-        # otherwise fall back to counting with tiktoken
 
         import tiktoken
-        
+
         # Get the model name from the API client
         model_name = None
         if hasattr(self.channel, 'manager') and hasattr(self.channel.manager, 'API'):
             model_name = self.channel.manager.API._model
-        
+
         encoding = None
         try:
             # Try to get the specific tokenizer for the model (e.g. gpt-4)
@@ -455,7 +427,7 @@ class Chat:
         except (KeyError, ValueError):
             # Fallback for unknown/custom models
             pass
-        
+
         if not encoding:
             # Final fallback to cl100k_base (used by GPT-4, Claude, etc.)
             encoding = tiktoken.get_encoding("cl100k_base")
@@ -470,9 +442,9 @@ class Chat:
             # - 3 tokens for message overhead (OpenAI format: <im_start>role\ncontent<im_end>\n)
             # - Role is counted as part of content
             # - This is simpler and less likely to overcount than more complex formulas
-            
+
             num_tokens += 3
-            
+
             # Count content
             if "content" in message:
                 content = message["content"]
@@ -485,16 +457,16 @@ class Chat:
                             part_text = part.get("text")
                             if isinstance(part_text, str):
                                 num_tokens += len(encoding.encode(part_text))
-            
+
             # If there's a name, add it (it's part of the message)
             if "name" in message and isinstance(message["name"], str):
                 num_tokens += len(encoding.encode(message["name"]))
-                
+
             # Count reasoning content if present
             if "reasoning_content" in message and isinstance(message["reasoning_content"], str):
                 num_tokens += len(encoding.encode(message["reasoning_content"]))
 
         # Add 1 token for final assistant priming (conservative)
         num_tokens += 1
-        
+
         return int(num_tokens)
