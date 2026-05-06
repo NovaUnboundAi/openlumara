@@ -199,14 +199,21 @@ class Channel:
         # add user's message to context
         await self.context.chat.add(user_message)
 
-        # estimate tokens used for user message and add to existing token count
-        if self.context.chat.token_usage:
+        # estimate tokens used for user message
+        user_message_token_estimation = 0
+        if self.context.chat.using_api_token_data:
             # if using API token count
             user_msg_tokens = await self.context.chat.count_tokens([user_message])
-            self.context.chat.token_usage += user_msg_tokens
+            user_message_token_estimation = await self.context.chat.get_token_usage()+user_msg_tokens
 
-            # yield so it updates throughout all channels that display token count
-            yield {"type": "token_usage", "content": self.context.chat.token_usage}
+            # add to existing API token count
+            await self.context.chat.set_token_usage(user_message_token_estimation)
+        else:
+            # just fully estimate
+            user_message_token_estimation = await self.context.chat.count_tokens()
+
+        # yield so it updates throughout all channels that display token count
+        yield {"type": "token_usage", "content": user_message_token_estimation, "source": "estimation"}
 
         # run module event hooks
         for module_name, module in self.manager.modules.items():
@@ -226,6 +233,7 @@ class Channel:
         final_reasoning = []
         tc_response = None
         tool_calls_occurred = False
+        fetched_token_usage = False
 
         # and stream the response to the caller of this method
         async for token in self.manager.API.send_stream(context):
@@ -272,8 +280,14 @@ class Channel:
                         self.context.chat.using_api_token_data = True
 
                     # cache this so chat.get_token_usage() returns this value
-                    self.context.chat.token_usage = token_usage
+                    await self.context.chat.set_token_usage(token_usage)
+
+                    fetched_token_usage = True
                 yield token
+
+        if not fetched_token_usage:
+            # yield an estimated token usage if the API didn't provide one
+            yield {"type": "token_usage", "content": self.context.chat.count_tokens(), "source": "estimation"}
 
         assistant_message = {
             "role": "assistant",

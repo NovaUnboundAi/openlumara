@@ -196,14 +196,13 @@ class ToolcallManager:
                     yield token
 
                 if token_type == "token_usage":
-                    core.log("tokens", "tool token usage received")
                     usage = token.get("content")
                     if usage is not None:
                         # set the flag so that token counting is always using API data
                         if not self.channel.context.chat.using_api_token_data:
                             self.channel.context.chat.using_api_token_data = True
 
-                        self.channel.context.chat.token_usage = usage
+                        await self.channel.context.chat.set_token_usage(usage)
                         # yield it to the frontend so the token bar updates in real-time
                         yield token
 

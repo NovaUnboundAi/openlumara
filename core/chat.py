@@ -9,6 +9,7 @@ class Chat:
         "category": "general",
         "tags": [],
         "custom_data": {},
+        "token_usage": 0
     }
 
     """contains openAI messages array, and can save and load sets of messages from files"""
@@ -18,7 +19,6 @@ class Chat:
         self.current = None
         self.current_save_path = os.path.join(core.get_data_path(), f"{self.channel.name}_current_chat")
         self.using_api_token_data = False # gets instantly set to True upon first receive of token usage data
-        self.token_usage = 0 # uses API results to cache last message's token usage
 
         for index in range(len(self.data) - 1, -1, -1):
             chat = self.data[index]
@@ -104,7 +104,7 @@ class Chat:
         index = len(self.data) - 1
         self._set_current(index)
 
-        self.token_usage = 0
+        await self.set_token_usage(0)
         self.using_api_token_data = False
 
         self.data.save()
@@ -117,7 +117,7 @@ class Chat:
         
         # Reset token_usage since we're clearing the chat
         # API token usage is only valid for the exact context that was sent
-        self.token_usage = 0
+        await self.set_token_usage(0)
         self.using_api_token_data = False
         
         await self.save()
@@ -405,7 +405,11 @@ class Chat:
         if not self.using_api_token_data:
             return await self.count_tokens()
 
-        return self.token_usage
+        return self.data[self.current]["token_usage"]
+
+    async def set_token_usage(self, usage: int):
+        self.data[self.current]["token_usage"] = usage
+        self.data.save()
 
     async def count_tokens(self, messages: list = None):
         """

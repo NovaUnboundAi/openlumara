@@ -370,7 +370,7 @@ class APIClient():
                         # Calculate total if not provided
                         token_usage = total_prompt_tokens + total_completion_tokens
 
-                    yield {"type": "token_usage", "content": token_usage}
+                    yield {"type": "token_usage", "content": token_usage, "source": "API"}
 
                 if hasattr(chunk, 'timings'):
                     yield {"type": "timings", "content": chunk.timings}
