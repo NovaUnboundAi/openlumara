@@ -63,16 +63,34 @@ class Coder(modules.sandboxed_files.SandboxedFiles):
     """Allows your AI to write, edit and test code for you."""
 
     settings = {
-        "coding_style": "Write clean, well-commented code. Do not include your reasoning inside final code.",
-        "sandbox_folder": "~/coder",
+        "mode": {
+            "default": "symbol_editing",
+            "type": "select",
+        },
+        "coding_style": {
+            "default": "Write clean, well-commented code. Do not include your reasoning inside final code.",
+            "description": "Use this to specify style guidelines for your AI to use while coding.",
+            "type": "long_text"
+        },
+        "sandbox_folder": {
+            "default": "~/coder",
+            "description": "What folder the coder tools should have access to"
+        },
+        "use_working_directory": {
+            "default": False,
+            "description": "Automatically grant access to the Current Working Directory (what folder you started openlumara from)"
+        },
         "add_project_list_to_system_prompt": True,
         "permissions": {
-            "create_project": True,
-            "add_functions": True,
-            "edit_functions": True,
-            "delete_functions": True,
-            "create_files": True,
-            "read_files": True,
+            "description": "What your AI is allowed to do",
+            "create_project": {
+                "default": True,
+                "description": "Allow creating new projects"
+            },
+            "create_files": {
+                "default": True,
+                "description": "Allow creating new files"
+            },
             "edit_files": True,
             "overwrite_files": False,
             "execute_code": False,

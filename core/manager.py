@@ -82,6 +82,8 @@ class Manager:
         # start channels (execute their .run() method)
         for channel_name, channel in self.channels.items():
             self._async_tasks.add(asyncio.create_task(channel.run()))
+            # also start the message polling loop per channel
+            self._async_tasks.add(asyncio.create_task(channel._poll_loop()))
             core.log("core", f"Started channel {channel_name}")
 
         if not self.channel:
@@ -135,6 +137,8 @@ class Manager:
             port = core.config.get("channels").get("settings").get("webui").get("port")
             print(flush=True)
             print(f"Please open the WebUI at http://{host}:{port}", flush=True)
+
+        print(await self.get_settings_structure());
 
         try:
             await asyncio.gather(*self._async_tasks, return_exceptions=should_swallow_exceptions)
@@ -364,6 +368,16 @@ class Manager:
             status_list.append(ctx_string)
 
         return status_list
+
+    async def get_settings_structure(self):
+        if not self.modules:
+            return {}
+
+        settings_structure = {}
+        for name, module in self.modules.items():
+            settings_structure[name] = module.settings
+
+        return settings_structure
 
     # --- tools ---
     def parse_tool_docstring(self, docstring):

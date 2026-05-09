@@ -183,14 +183,20 @@ class Discord(core.channel.Channel):
         "announce_shutdown": False
     }
 
-    async def _announce(self, msg: str, type: str = None):
+    async def on_message(self, msg: dict):
+        core.log("test", "on_message called")
+
         if not msg:
             return None
+
+        core.log("test", "proceeding with send")
+
+        print(msg)
 
         for guild in self._client.guilds:
             for channel in guild.channels:
                 if isinstance(channel, discord.TextChannel) and channel.permissions_for(guild.me).view_channel:
-                    await channel.send(msg)
+                    await channel.send(msg.get("content"))
 
     async def run(self):
         token = core.config.config.get("channels").get("settings").get("discord").get("token")

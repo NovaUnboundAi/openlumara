@@ -80,9 +80,7 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
 
     let order = 1;
 
-    // Process each top-level key (category)
     for (const [topKey, topValue] of Object.entries(originalData)) {
-        // Skip theme keys
         if (topKey.toLowerCase() === 'theme' || topKey.toLowerCase() === 'theme_mode') {
             continue;
         }
@@ -90,13 +88,11 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
         const category = topKey;
         categories[category] = {
             title: formatLabel(category),
-            description: CATEGORY_DESCRIPTIONS[category] ||
-            `Configure ${formatLabel(category).toLowerCase()}`,
+            description: CATEGORY_DESCRIPTIONS[category] || `Configure ${formatLabel(category).toLowerCase()}`,
             groups: new Map(),
             order: order++
         };
 
-        // Helper to add item to the correct group
         const addToGroup = (groupKey, groupTitle, item, isDirect = false) => {
             if (!categories[category].groups.has(groupKey)) {
                 categories[category].groups.set(groupKey, {
@@ -109,8 +105,7 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
         };
 
         // Special handling for modules and channels
-        if (topKey === 'modules' || topKey === 'user_modules') {
-            // Get list of enabled items to filter settings
+        if (topKey === 'modules' || topKey === 'user_modules' || topKey === 'channels') {
             const enabledItems = new Set(topValue.enabled || []);
             const allItems = getAllToggleItems(topValue);
 
@@ -125,7 +120,6 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
                 }
             }
 
-            // Add the toggle list directly (ungrouped) at the top
             addToGroup('_direct_', null, {
                 key: topKey,
                 value: {
@@ -138,36 +132,45 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
                 isModuleList: true
             }, true);
 
-            // Only show settings for enabled items
             if (topValue.settings && typeof topValue.settings === 'object') {
                 for (const [itemName, itemSettings] of Object.entries(topValue.settings)) {
-                    // Skip settings for disabled modules/channels
-                    if (!enabledItems.has(itemName)) {
-                        continue;
-                    }
+                    if (!enabledItems.has(itemName)) continue;
 
                     const groupKey = `${topKey}.settings.${itemName}`;
                     const groupTitle = formatLabel(itemName);
+                    const itemSchema = moduleInfo[itemName]?.settings_schema || {};
 
                     if (typeof itemSettings === 'object' && itemSettings !== null &&
                         !Array.isArray(itemSettings) && !isToggleList(itemSettings)) {
-                        // Flatten nested settings
-                        flattenSettingsObject(itemSettings, groupKey, (item) => {
+                        flattenSettingsObject(itemSettings, groupKey, itemSchema, (item) => {
                             addToGroup(groupKey, groupTitle, item);
                         });
                         } else {
-                            // Simple value or toggle list
+                            // Handle simple values by checking the schema for an explicit type
+                            let type = detectType(itemSettings, groupKey);
+                            if (itemSchema[itemName] && itemSchema[itemName].type) {
+                                type = itemSchema[itemName].type;
+                            }
+
+                            let description = FIELD_DESCRIPTIONS[groupKey] || null;
+                            if (!description && itemSchema[itemName] && itemSchema[itemName].description) {
+                                description = itemSchema[itemName].description;
+                            }
+
                             addToGroup(groupKey, groupTitle, {
                                 key: groupKey,
                                 value: itemSettings,
-                                type: isToggleList(itemSettings) ? 'toggle_list' : detectType(itemSettings, groupKey),
-                                       description: FIELD_DESCRIPTIONS[groupKey] || null
+                                type: type,
+                                description: description,
+                                // Pass through extra schema properties for the input type
+                                min: itemSchema[itemName]?.min,
+                                max: itemSchema[itemName]?.max,
+                                step: itemSchema[itemName]?.step
                             });
                         }
                 }
             }
-
-            // Add any other top-level items that aren't settings (direct, ungrouped)
+            // ... (rest of module direct items logic remains the same)
             for (const [secondKey, secondValue] of Object.entries(topValue)) {
                 if (secondKey === 'settings' || secondKey === 'enabled' ||
                     secondKey === 'disabled' || secondKey === 'disabled_prompts') {
@@ -191,27 +194,38 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
                 type: 'toggle_list'
             }, true);
 
-            // If toggle list has a settings sub-object, show settings for enabled items only
             if (topValue.settings && typeof topValue.settings === 'object') {
                 const enabledItems = new Set(topValue.enabled || []);
                 for (const [itemName, itemSettings] of Object.entries(topValue.settings)) {
-                    if (!enabledItems.has(itemName)) {
-                        continue;
-                    }
+                    if (!enabledItems.has(itemName)) continue;
                     const groupKey = `${topKey}.settings.${itemName}`;
                     const groupTitle = formatLabel(itemName);
+                    const itemSchema = moduleInfo[itemName]?.settings_schema || {};
 
                     if (typeof itemSettings === 'object' && itemSettings !== null &&
                         !Array.isArray(itemSettings) && !isToggleList(itemSettings)) {
-                        flattenSettingsObject(itemSettings, groupKey, (item) => {
+                        flattenSettingsObject(itemSettings, groupKey, itemSchema, (item) => {
                             addToGroup(groupKey, groupTitle, item);
                         });
                         } else {
+                            let type = detectType(itemSettings, groupKey);
+                            if (itemSchema[itemName] && itemSchema[itemName].type) {
+                                type = itemSchema[itemName].type;
+                            }
+
+                            let description = FIELD_DESCRIPTIONS[groupKey] || null;
+                            if (!description && itemSchema[itemName] && itemSchema[itemName].description) {
+                                description = itemSchema[itemName].description;
+                            }
+
                             addToGroup(groupKey, groupTitle, {
                                 key: groupKey,
                                 value: itemSettings,
-                                type: isToggleList(itemSettings) ? 'toggle_list' : detectType(itemSettings, groupKey),
-                                       description: FIELD_DESCRIPTIONS[groupKey] || null
+                                type: type,
+                                description: description,
+                                min: itemSchema[itemName]?.min,
+                                max: itemSchema[itemName]?.max,
+                                step: itemSchema[itemName]?.step
                             });
                         }
                 }
@@ -219,26 +233,19 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
             continue;
         }
 
-        // Regular object - separate simple values from complex values
+        // Regular object logic
         if (typeof topValue === 'object' && topValue !== null && !Array.isArray(topValue)) {
-            // Categorize children
             const simpleItems = [];
             const complexItems = [];
 
             for (const [secondKey, secondValue] of Object.entries(topValue)) {
-                if (isToggleList(secondValue)) {
-                    complexItems.push([secondKey, secondValue]);
-                } else if (Array.isArray(secondValue)) {
-                    complexItems.push([secondKey, secondValue]);
-                } else if (typeof secondValue === 'object' && secondValue !== null) {
+                if (isToggleList(secondValue) || Array.isArray(secondValue) || (typeof secondValue === 'object' && secondValue !== null)) {
                     complexItems.push([secondKey, secondValue]);
                 } else {
-                    // Simple value (string, number, boolean, null)
                     simpleItems.push([secondKey, secondValue]);
                 }
             }
 
-            // Add simple values directly (no grouping)
             for (const [key, value] of simpleItems) {
                 addToGroup('_direct_', null, {
                     key: `${category}.${key}`,
@@ -247,19 +254,16 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
                 }, true);
             }
 
-            // Group complex values
             for (const [secondKey, secondValue] of complexItems) {
                 const groupKey = `${topKey}.${secondKey}`;
                 const groupTitle = formatLabel(secondKey);
 
                 if (typeof secondValue === 'object' && secondValue !== null &&
                     !Array.isArray(secondValue) && !isToggleList(secondValue)) {
-                    // It's a nested object, flatten its contents
-                    flattenSettingsObject(secondValue, groupKey, (item) => {
+                    flattenSettingsObject(secondValue, groupKey, {}, (item) => {
                         addToGroup(groupKey, groupTitle, item);
                     });
                     } else {
-                        // It's a toggle list or array
                         addToGroup(groupKey, groupTitle, {
                             key: groupKey,
                             value: secondValue,
@@ -269,7 +273,6 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
                     }
             }
         } else {
-            // Simple value at top level (no groups)
             addToGroup(topKey, formatLabel(topKey), {
                 key: topKey,
                 value: topValue,
@@ -281,21 +284,42 @@ function organizeSettingsIntoCategories(originalData, moduleInfo = {}) {
     return categories;
 }
 
+
 // Flatten a settings object into dot-notation items
-function flattenSettingsObject(obj, prefix, callback) {
+function flattenSettingsObject(obj, prefix, schema = {}, callback) {
     for (const [key, value] of Object.entries(obj)) {
         const fullKey = prefix ? `${prefix}.${key}` : key;
+        const subSchema = (schema && schema[key]) ? schema[key] : {};
+
+        // 1. Determine type: Priority 1: Schema definition, Priority 2: Value detection
+        let type = detectType(value, fullKey);
+        if (subSchema.type) {
+            // Map the user's custom types to our UI types
+            if (subSchema.type === 'long_text') type = 'textarea';
+            else if (subSchema.type === 'number') type = 'number';
+            else if (subSchema.type === 'slider') type = 'slider';
+        }
+
+        // 2. Determine description
+        let description = FIELD_DESCRIPTIONS[fullKey] || null;
+        if (!description && subSchema.description) {
+            description = subSchema.description;
+        }
 
         if (typeof value === 'object' && value !== null &&
             !Array.isArray(value) && !isToggleList(value)) {
             // Nested object - recurse
-            flattenSettingsObject(value, fullKey, callback);
+            flattenSettingsObject(value, fullKey, subSchema, callback);
             } else {
                 callback({
                     key: fullKey,
                     value: value,
-                    type: isToggleList(value) ? 'toggle_list' : detectType(value, fullKey),
-                         description: FIELD_DESCRIPTIONS[fullKey] || null
+                    type: type,
+                    description: description,
+                    // 3. Pass through range properties for sliders/numbers
+                    min: subSchema.min,
+                    max: subSchema.max,
+                    step: subSchema.step
                 });
             }
     }
@@ -623,7 +647,13 @@ function createSettingItem(item) {
     label.textContent = formatLabel(item.key);
     wrapper.appendChild(label);
 
-    // Create appropriate input based on type
+    if (item.description) {
+        const desc = document.createElement('p');
+        desc.className = 'setting-description';
+        desc.textContent = item.description;
+        wrapper.appendChild(desc);
+    }
+
     let inputEl;
 
     switch (item.type) {
@@ -654,19 +684,68 @@ function createSettingItem(item) {
         case 'password':
             inputEl = createPasswordInput(item.key, item.value);
             break;
+        case 'slider':
+            inputEl = createSliderInput(item.key, item.value, item.min, item.max, item.step);
+            break;
         default:
             inputEl = createTextInput(item.key, item.value, item.type);
     }
 
     wrapper.appendChild(inputEl);
 
-    if (item.description) {
-        const desc = document.createElement('p');
-        desc.className = 'setting-description';
-        desc.textContent = item.description;
-        wrapper.appendChild(desc);
-    }
+    return wrapper;
+}
 
+// Generic Slider Input Implementation
+function createSliderInput(key, value, min = 0, max = 100, step = 1) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'setting-slider-container';
+
+    const currentVal = parseFloat(value) || 0;
+    const minVal = parseFloat(min);
+    const maxVal = parseFloat(max);
+    const stepVal = parseFloat(step) || 1;
+
+    // Calculate percentage for the visual fill
+    const getPercentage = (val) => ((val - minVal) / (maxVal - minVal)) * 100;
+    const percentage = getPercentage(currentVal);
+
+    const sliderRow = document.createElement('div');
+    sliderRow.className = 'slider-row';
+    sliderRow.innerHTML = `
+    <div class="slider-header">
+    <span class="slider-label">Value</span>
+    <span class="slider-value" id="${key}-val-display">${currentVal}</span>
+    </div>
+    <div class="slider-track-wrapper">
+    <div class="slider-track">
+    <input type="range" class="slider-input" id="${key}-input"
+    min="${min}" max="${max}" step="${step}" value="${currentVal}">
+    <div class="slider-fill" id="${key}-fill" style="width: ${percentage}%"></div>
+    <div class="slider-handle" id="${key}-handle" style="left: ${percentage}%"></div>
+    </div>
+    <div class="slider-labels">
+    <span>${min}</span>
+    <span>${max}</span>
+    </div>
+    </div>
+    `;
+
+    const input = sliderRow.querySelector('.slider-input');
+    const fill = sliderRow.querySelector('.slider-fill');
+    const handle = sliderRow.querySelector('.slider-handle');
+    const display = sliderRow.querySelector('.slider-value');
+
+    input.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        const p = getPercentage(val);
+        display.textContent = val;
+        fill.style.width = `${p}%`;
+        handle.style.left = `${p}%`;
+        handleSettingChange(key, val);
+    });
+
+    wrapper.appendChild(sliderRow);
     return wrapper;
 }
 

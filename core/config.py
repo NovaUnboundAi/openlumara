@@ -121,6 +121,15 @@ class ConfigManager:
         if hasattr(self.root_config, 'save'):
             self.root_config.save()
 
+    def __contains__(self, key):
+        """Check if key exists: 'key' in config"""
+        current = self.root_config
+        for k in self.base_path:
+            if isinstance(current, dict) and k in current:
+                current = current[k]
+            else:
+                return False
+        return isinstance(current, dict) and key in current
 
 def _discover_available_names(package):
     """
@@ -203,6 +212,9 @@ def _inject_settings_into_dict(target_dict, instances, section_key):
         name = core.modules.get_name(inst)
         defaults = getattr(inst, 'settings', {})
         if isinstance(defaults, dict) and defaults:
+            # We inject the full dict (including descriptions) into the schema.
+            # sync_config will later replace these dicts with flat values
+            # if the user has provided them in the config file.
             settings[name] = defaults.copy()
 
 def get_schema(enabled_channels=None, enabled_modules=None, enabled_user_modules=None):
@@ -253,6 +265,7 @@ def reconcile_lists(available_names, default_names, section_config):
         "disabled": sorted(list(disabled | new_disabled))
     }
 
+
 def sync_module_settings(config_dict, instances, section_key):
     """Performs deep pruning and merging of module settings."""
     section = config_dict.setdefault(section_key, {})
@@ -264,21 +277,49 @@ def sync_module_settings(config_dict, instances, section_key):
 
     for inst in instances:
         name = core.modules.get_name(inst)
-        defaults = getattr(inst, 'settings', {})
-        if not isinstance(defaults, dict):
+        module_defaults = getattr(inst, 'settings', {})
+        if not isinstance(module_defaults, dict):
             continue
 
         if name in settings and isinstance(settings[name], dict):
             curr = settings[name]
-            for k in [k for k in curr if k not in defaults]:
+
+            # 1. Remove keys that are no longer defined in the module
+            for k in [k for k in curr if k not in module_defaults]:
                 del curr[k]
-            for k, v in defaults.items():
+
+            # 2. Merge defaults into the current settings
+            for k, v in module_defaults.items():
+                # Determine the actual value (handling the new dict structure)
+                if isinstance(v, dict) and "default" in v:
+                    default_val = v["default"]
+                else:
+                    default_val = v
+
                 if k not in curr:
-                    curr[k] = v
+                    # Key doesn't exist in user config, use default
+                    curr[k] = default_val
+                elif isinstance(curr[k], dict) and "default" in curr[k]:
+                    # This handles the case where sync_config left the
+                    # metadata dict in the schema because the user didn't override it.
+                    # We flatten it here so the config file stays clean.
+                    curr[k] = default_val
+                # If k is in curr and is already a flat value, we leave it alone.
+
             if not curr:
                 del settings[name]
-        elif defaults:
-            settings[name] = defaults.copy()
+        elif module_defaults:
+            # If the module has no settings in the config at all,
+            # create a flat version from the defaults so the file is populated.
+            flat_defaults = {}
+            for k, v in module_defaults.items():
+                if isinstance(v, dict) and "default" in v:
+                    flat_defaults[k] = v["default"]
+                else:
+                    flat_defaults[k] = v
+            if flat_defaults:
+                settings[name] = flat_defaults
+
 
 def load(file_path=None):
     """

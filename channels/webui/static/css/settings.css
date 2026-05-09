@@ -274,6 +274,31 @@
 }
 
 /* ==========================================================================
+ *  Setting Descriptions (Hints)
+ *  ========================================================================== */
+
+/* Standard settings: appears below the input field */
+.setting-description {
+    margin: 4px 0 12px 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+/* Module Card: appears inside the small card container */
+.toggle-list-item-description {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    white-space: pre-wrap;
+
+    /* Keep it clean inside the card; no heavy borders needed here */
+    margin-top: 4px;
+    padding-left: 2px;
+    opacity: 0.85;
+}
+
+/* ==========================================================================
  *  Toggle Switches - Fixed
  *  ========================================================================== */
 

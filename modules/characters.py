@@ -4,8 +4,14 @@ class Characters(core.module.Module):
     """Lets your AI embody different characters! inspired by characterAI, janitorAI, sillytavern, etc."""
 
     settings = {
-        "put_character_list_in_system_prompt": True,
-        "disable_agent_prompts_when_character_active": True
+        "insert_system_prompt": {
+            "default": True,
+            "description": "Put the list of stored characters into the system prompt so that the AI always knows what characters it can switch to"
+        },
+        "disable_agent_prompts_when_character_active": {
+            "default": True,
+            "description": "Automatically disables all prompts from other modules so that the system prompt when a character is active is purely the character profile"
+        }
     }
 
     def __init__(self, *args, **kwargs):

@@ -354,6 +354,9 @@ def api_logout():
 def require_login():
     global channel_instance
 
+    if not channel_instance:
+        return jsonify({'error': "Channel object not found"})
+
     if not bool(channel_instance.config.get("require_login")):
         if 'username' in session:
             # auto-logout when auth is turned off
@@ -1259,17 +1262,22 @@ def get_module_info():
     import modules
     import user_modules
 
-    loaded_module_classes = core.modules.load(modules, core.module.Module) + core.modules.load(user_modules, core.module.Module)
-    for module_class in loaded_module_classes:
-        module_name = core.modules.get_name(module_class)
-        docstring = str(module_class.__doc__).strip()
-        is_unsafe = getattr(module_class, 'unsafe', False)
+    # Load modules, user_modules, AND channels so we can get descriptions for all
+    loaded_classes = core.modules.load(modules, core.module.Module) + core.modules.load(user_modules, core.module.Module)
 
-        if docstring not in [None, "None"] and module_name not in module_info.keys():
-            # only get the first class's docstring, dont overwrite it with docstrings from other classes in the file
+    for cls in loaded_classes:
+        module_name = core.modules.get_name(cls)
+        docstring = str(cls.__doc__).strip() if cls.__doc__ else None
+        is_unsafe = getattr(cls, 'unsafe', False)
+
+        # Get the settings structure (the one with 'default' and 'description')
+        settings_schema = getattr(cls, 'settings', {})
+
+        if module_name not in module_info.keys():
             module_info[module_name] = {
                 "description": docstring,
-                "unsafe": is_unsafe
+                "unsafe": is_unsafe,
+                "settings_schema": settings_schema
             }
 
     return jsonify({"success": True, "module_info": module_info})

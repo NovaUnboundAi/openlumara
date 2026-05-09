@@ -61,6 +61,30 @@ class Channel:
         # fallback
         return ""
 
+    async def _poll_loop(self):
+        """constantly polls the chat history to see if anything new arrived, and if so, triggers the respective event methods"""
+        if not hasattr(self, "on_message"):
+            core.log(self.name, "FATAL ERROR: missing on_message() method. Could not start message polling loop.")
+            return
+
+        chat_history = await self.context.chat.get()
+        last_fetched_index = len(chat_history)
+
+        while True:
+            new_messages = await self.context.chat.get_since(last_fetched_index)
+            if new_messages:
+                core.log(self.name, "detected new message")
+
+            for message in new_messages:
+                if message.get("content") == "[SYSTEM TICK]":
+                    continue
+
+                await self.on_message(message)
+
+                last_fetched_index += 1
+
+            await asyncio.sleep(1)
+
     async def send(self, message: dict):
         """sends a message to the AI from within the current channel"""
 
@@ -324,15 +348,10 @@ class Channel:
         if not type:
             type = "info"
 
+        core.log(self.name, "announce called")
+
         # insert announced message into context
         await self.context.chat.add({"role": "assistant", "content": f"[System {type}]: {message}"})
-
-        # call the overridable method
-        await self._announce(message, type=type)
-
-    async def _announce(self, message: str, type=None):
-        """override this one in subclasses"""
-        raise NotImplementedError
 
     async def announce_all(self, message: str, type=None):
         """announces a message across all channels. useful for very important notifications!"""

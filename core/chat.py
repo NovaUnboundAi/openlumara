@@ -254,6 +254,13 @@ class Chat:
             return None
 
         return self.data[self.current].get("messages", [])
+    async def get_since(self, fetch_index: int):
+        """get only new messages in current chat"""
+        if self.current is None:
+            return None
+
+        return self.data[self.current]["messages"][fetch_index:]
+
     async def get_id(self):
         if self.current is None:
             return None

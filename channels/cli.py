@@ -143,6 +143,10 @@ class Cli(core.channel.Channel):
 
         return True
 
+    async def on_message(self, message: dict):
+        core.log("debug", message)
+        print(flush=True)
+
     async def _process_message(self, msg):
         message_state = None
         # Create a fresh renderer for this message session

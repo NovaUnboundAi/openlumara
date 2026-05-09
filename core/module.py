@@ -5,6 +5,28 @@ import inspect
 import json
 import asyncio
 
+class ModuleConfig:
+    def __init__(self, module_obj, settings_structure: dict, module_config):
+        self.module = module_obj
+
+        # the structure definition of the settings, defined in each module's settings dict
+        self.structure = settings_structure
+
+        # the live config, loaded from the config file
+        self.config = module_config
+
+    def get(self, key: str, default = None):
+        if key not in self.config:
+            return default
+
+        return self.config[key]
+
+    def set(self, key: str, value):
+        if key not in self.config:
+            return None
+
+        self.config[key] = value
+
 class Module:
     """Base class for modules/plugins"""
 
@@ -20,7 +42,11 @@ class Module:
 
         # load module config
         config_target = "modules" if not is_user_module else "user_modules"
-        self.config = core.config.ConfigManager(core.config.config, [config_target, "settings", self.name])
+        self.config = ModuleConfig(
+            self,
+            self.settings,
+            core.config.ConfigManager(core.config.config, base_path=[config_target, "settings", self.name])
+        )
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
