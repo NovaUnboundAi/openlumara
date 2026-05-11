@@ -81,7 +81,7 @@ class WebReader(modules.http.Http):
 
             if not output["classes"]:
                 del output["classes"]
-                    output["message"] = "nothing could be scraped from the page!"
+                output["message"] = "nothing could be scraped from the page!"
 
         return output
 
