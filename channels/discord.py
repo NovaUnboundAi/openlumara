@@ -67,6 +67,9 @@ class Client(discord.Client):
 
         self._channel = message.channel
 
+        if message.channel.id != self.ai_channel.config.get("target_channel_id"):
+            return
+
         if message.content:
             # only reply if mentioned
             mentioned = False
@@ -150,6 +153,7 @@ class Discord(core.channel.Channel):
     settings =  {
         "token": "TOKEN_HERE",
         "authorised_user_id": "USER_ID_HERE",
+        "target_channel_id": "CHANNEL_ID_HERE",
         "require_mentions": False,
         "use_message_streaming": False,
         "show_reasoning": False,
@@ -175,8 +179,10 @@ class Discord(core.channel.Channel):
         for guild in self._client.guilds:
             for channel in guild.channels:
                 if isinstance(channel, discord.TextChannel) and (
-                    channel.permissions_for(guild.me).view_channel and
-                    channel.permissions_for(guild.me).send_messages
+                    channel.id == self.config.get("target_channel_id") and (
+                        channel.permissions_for(guild.me).view_channel and
+                        channel.permissions_for(guild.me).send_messages
+                    )
                 ):
                     for chunk in chunks:
                         await channel.send(chunk)
