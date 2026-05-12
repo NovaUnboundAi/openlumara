@@ -4,7 +4,7 @@ import core
 import ulid
 
 class Scheduler(core.module.Module):
-    """Lets your AI send you scheduled reminders and do things at specified times"""
+    """Lets your AI perform actions on your behalf at specified times! Supports recurring actions."""
 
     settings = {
         "insert_system_prompt": {
