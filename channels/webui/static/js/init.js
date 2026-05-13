@@ -15,6 +15,10 @@ function cleanup() {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
     }
+    if (window.socket) {
+        window.socket.close();
+        window.socket = null;
+    }
     hideConnectionStatus();
 }
 
@@ -35,8 +39,6 @@ if ('serviceWorker' in navigator) {
 // =============================================================================
 // Initialization
 // =============================================================================
-
-// Don't set initial connection status - let it be determined by checkConnection()
 
 async function init() {
     try {
@@ -87,18 +89,40 @@ async function init() {
             const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 
             socket = new WebSocket(wsUrl);
+            window.socket = socket; // Make socket globally accessible for send.js etc.
 
             socket.onopen = () => {
                 console.log('WebSocket connected');
                 isConnected = true;
-                reconnectAttempts = 0; // Reset attempts on successful connection
+                reconnectAttempts = 0; 
             };
 
             socket.onmessage = (event) => {
                 try {
-                    // Native WebSockets transmit raw strings, so we parse JSON here.
-                    // Socket.IO did this automatically.
                     const msg = JSON.parse(event.data);
+                    
+                    // Handle event-based messages from the backend
+                    if (msg.type === 'message_added') {
+                        handleNewMessage(msg.message);
+                        return;
+                    }
+
+                    if (msg.type === 'chat_metadata_updated') {
+                        if (typeof updateChatTitleBar === 'function') {
+                            updateChatTitleBar(msg.title, msg.tags || []);
+                        }
+                        loadChats();
+                        return;
+                    }
+
+                    if (msg.type === 'status_updated') {
+                        if (typeof updateConnectionStatus === 'function') {
+                            updateConnectionStatus(msg.status);
+                        }
+                        return;
+                    }
+
+                    // Fallback for direct messages or old format
                     handleNewMessage(msg);
                 } catch (e) {
                     console.error('Error parsing WebSocket message:', e);
@@ -108,18 +132,15 @@ async function init() {
             socket.onclose = (event) => {
                 console.log('WebSocket disconnected:', event.reason);
                 isConnected = false;
+                window.socket = null;
 
-                // Manual Reconnection Logic (since we aren't using Socket.IO's auto-reconnect)
-                if (reconnectAttempts < maxReconnectAttempts) {
-                    reconnectAttempts++;
-                    console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
-                    setTimeout(connectWebSocket, 1000 * reconnectAttempts);
-                }
+                reconnectAttempts++;
+                console.log(`Attempting to reconnect (attempt ${reconnectAttempts})...`);
+                setTimeout(connectWebSocket, 1000 * reconnectAttempts);
             };
 
             socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                // onclose will be called immediately after onerror, handling the UI state
             };
         }
 
@@ -127,20 +148,6 @@ async function init() {
         let pendingTurn = null;
         let pendingToolCalls = new Map();
         let waitingForToolIds = [];
-
-        function renderAssistantTurnFromBuffer(assistantMsg, toolResponseMap) {
-            // Convert Map to array of messages for renderAssistantTurn
-            const turnMessages = [assistantMsg];
-            const callIds = assistantMsg.tool_calls.map(tc => tc.id);
-            for (const id of callIds) {
-                if (toolResponseMap.has(id)) {
-                    turnMessages.push(toolResponseMap.get(id));
-                }
-            }
-            
-            const lastMsg = turnMessages[turnMessages.length - 1];
-            renderAssistantTurn(turnMessages, lastMsg.index, true);
-        }
 
         function handleNewMessage(msg) {
             if (!isConnected || userIsEditing) return;
@@ -158,7 +165,7 @@ async function init() {
         // Start WebSocket connection
         connectWebSocket();
 
-        // Periodic API status check (still uses polling for status)
+        // Periodic API status check (still uses polling for status as a fallback/heartbeat)
         apiStatusIntervalId = setInterval(() => {
             if (isConnected) {
                 checkApiStatus();

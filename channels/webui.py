@@ -107,15 +107,52 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @app.websocket("/ws")
+@app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Wait for data to keep connection alive, or just wait for close
-            data = await websocket.receive_text()
-            # Handle incoming websocket messages here if needed
+            data_text = await websocket.receive_text()
+            try:
+                data = json.loads(data_text)
+                msg_type = data.get("type")
+
+                if msg_type == "stop":
+                    # Signal the API to stop
+                    if channel_instance and channel_instance.manager.API:
+                        channel_instance.manager.API.cancel_request = True
+                        # Note: We don't have the current stream_id here easily, 
+                        # but the API will stop the current active request.
+                    
+                elif msg_type == "cancel":
+                    stream_id = data.get("id")
+                    if stream_id:
+                        stream_cancellations.add(stream_id)
+
+                elif msg_type == "rename":
+                    new_title = data.get("title")
+                    if channel_instance and new_title:
+                        await channel_instance.context.chat.set_title(new_title)
+                        # Broadcast the update
+                        await manager.broadcast({
+                            "type": "chat_metadata_updated",
+                            "title": new_title,
+                            "tags": await channel_instance.context.chat.get_tags() or []
+                        })
+
+            except json.JSONDecodeError:
+                pass
+            except Exception as e:
+                core.log("webui", f"WebSocket command error: {e}")
+
+            except WebSocketDisconnect:
+                manager.disconnect(websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+    except Exception as e:
+        core.log("webui", f"WebSocket error: {e}")
+        manager.disconnect(websocket)
+
 
 # -----------------------------------------------------------------------------
 # Utilities
@@ -435,6 +472,7 @@ async def token_usage():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/stream")
+@app.post("/stream")
 async def stream_message(request: Request):
     global channel_instance
 
@@ -461,19 +499,28 @@ async def stream_message(request: Request):
                     break
 
                 # Map status
-                p_type = token_data.get('type')
+                p_type = token_data.get("type")
                 status_str = "idle"
-                if p_type == 'reasoning': status_str = "thinking"
-                elif p_type in ['tool_call_delta', 'tool', 'tool_calls']: status_str = "tool_call"
-                elif p_type == 'tool': status_str = "tool_exec"
+                if p_type == "reasoning": status_str = "thinking"
+                elif p_type in ["tool_call_delta", "tool", "tool_calls"]: status_str = "tool_call"
+                elif p_type == "tool": status_str = "tool_exec"
 
                 payload = serialize_for_json(token_data)
-                payload['_meta'] = {'type': 'delta', 'status': status_str}
+                payload["_meta"] = {"type": "delta", "status": status_str}
                 yield f"data: {json.dumps(payload)}\n\n"
 
+            # Post-stream: Broadcast the new message
+            messages = await channel_instance.context.chat.get() or []
+            if messages:
+                last_msg = messages[-1]
+                # We need to serialize it properly for the frontend
+                await manager.broadcast({
+                    "type": "message_added",
+                    "message": serialize_for_json(last_msg)
+                })
+
             # Commit phase
-            full_history = await channel_instance.context.chat.get()
-            serialized_history = [serialize_for_json(m) for m in full_history]
+            serialized_history = [serialize_for_json(m) for m in messages]
             yield f"data: {json.dumps({'_meta': {'type': 'commit'}, 'history': serialized_history})}\n\n"
 
         except Exception as e:
@@ -484,6 +531,7 @@ async def stream_message(request: Request):
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no'
     })
+
 
 @app.post("/send")
 async def send_message(request: Request):
@@ -679,6 +727,7 @@ async def get_current_chat():
     }
 
 @app.post("/chat/rename")
+@app.post("/chat/rename")
 async def rename_chat(request: Request):
     if not channel_instance:
         raise HTTPException(status_code=500, detail="Channel not available")
@@ -689,7 +738,16 @@ async def rename_chat(request: Request):
         raise HTTPException(status_code=400, detail="Title cannot be empty")
 
     await channel_instance.context.chat.set_title(new_title)
+    
+    # Broadcast the update so all clients are in sync
+    await manager.broadcast({
+        "type": "chat_metadata_updated",
+        "title": new_title,
+        "tags": await channel_instance.context.chat.get_tags() or []
+    })
+
     return {'success': True, 'title': new_title}
+
 
 @app.post("/chat/update_category")
 async def update_chat_category(request: Request):

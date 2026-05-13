@@ -174,25 +174,23 @@ function updateSegmentContent(seg, index) {
 // =============================================================================
 
 async function send(providedContent = null) {
-    if (isStreaming) return;
-
     const isRegenerate = providedContent !== null;
     const rawContent = providedContent !== null ? providedContent : inputField.value.trim();
     const message = typeof rawContent === 'string' ? rawContent : extractTextContent(rawContent);
-
-    if (!message && !isRegenerate) return;
-
-    typewriterQueue = [];
-    displayedContent = '';
-    isTypewriterRunning = false;
-    resetStreamState();
-
     if (!isRegenerate) {
         clearInput();
         if (message.trim().startsWith('/') || message.trim().startsWith("STOP")) {
             return sendCommand(message);
         }
     }
+
+    if (isStreaming) return;
+    if (!message && !isRegenerate) return;
+
+    typewriterQueue = [];
+    displayedContent = '';
+    isTypewriterRunning = false;
+    resetStreamState();
 
     if (!isRegenerate) {
         placeholderUserWrapper = createPlaceholderUserMessage(message);
@@ -595,13 +593,9 @@ async function sendCommand(message) {
         }
 
         if (message.startsWith("/stop") || message.startsWith("STOP")) {
-            fetch('/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({role: "user", content: message })
-            });
             await stopGeneration(true);
         } else {
+            // For standard messages, we'll keep using POST as it's a single transaction
             const response = await fetch('/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -840,19 +834,9 @@ async function stopGeneration(sent_from_command = false) {
 
     // Notify backend
     if (currentStreamId) {
-        if (!sent_from_command) {
-            fetch('/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role: "user", content: "/stop" })
-            });
-        }
         try {
-            await fetch('/cancel', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: currentStreamId })
-            });
+            window.socket.send(JSON.stringify({ type: 'stop' }));
+            window.socket.send(JSON.stringify({ type: 'cancel', id: currentStreamId }));
         } catch (e) {
             // Ignore network errors during cancellation
         }

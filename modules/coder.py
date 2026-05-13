@@ -1159,47 +1159,47 @@ class Coder(modules.sandboxed_files.SandboxedFiles):
 
     # ==================== File Operations ====================
 
-    # async def list_full_project_tree(self, project_name: str, depth_limit: int = 5, max_files_per_folder: int = 50):
-    #     """Returns a recursive tree representation of the project structure. Use this to understand the overall project layout before diving into specific files."""
-    #     project_path = self._get_project_path(project_name)
-    #
-    #     if not os.path.exists(project_path):
-    #         return self.result("error: project does not exist", success=False)
-    #
-    #     def _build_tree(path, current_depth):
-    #         if not os.path.isdir(path):
-    #             return {"files": [], "folders": {}}
-    #
-    #         files = []
-    #         folders = {}
-    #         files_counter = 0
-    #         try:
-    #             for entry in os.scandir(path):
-    #                 if entry.is_file():
-    #                     if files_counter > max_files_per_folder:
-    #                         continue
-    #
-    #                     files.append(entry.name)
-    #                     files_counter += 1
-    #                 elif entry.is_dir():
-    #                     if entry.name in self.config.get("limits", "folder_blacklist", default=[]):
-    #                         continue
-    #                     if entry.name.startswith('.'):
-    #                         continue
-    #                     if current_depth < depth_limit:
-    #                         folders[entry.name] = _build_tree(entry.path, current_depth + 1)
-    #                     else:
-    #                         folders[entry.name] = {"files": [], "folders": {}}
-    #         except Exception:
-    #             pass
-    #
-    #         return {"files": files, "folders": folders}
-    #
-    #     try:
-    #         tree = _build_tree(project_path, 0)
-    #         return self.result(tree, success=True)
-    #     except Exception as e:
-    #         return self.result(f"error: {e}", success=False)
+    async def list_full_project_tree(self, project_name: str, depth_limit: int = 5, max_files_per_folder: int = 50):
+        """Returns a recursive tree representation of the project structure. Use this to understand the overall project layout before diving into specific files."""
+        project_path = self._get_project_path(project_name)
+
+        if not os.path.exists(project_path):
+            return self.result("error: project does not exist", success=False)
+
+        def _build_tree(path, current_depth):
+            if not os.path.isdir(path):
+                return {"files": [], "folders": {}}
+
+            files = []
+            folders = {}
+            files_counter = 0
+            try:
+                for entry in os.scandir(path):
+                    if entry.is_file():
+                        if files_counter > max_files_per_folder:
+                            continue
+
+                        files.append(entry.name)
+                        files_counter += 1
+                    elif entry.is_dir():
+                        if entry.name in self.config.get("limits", "folder_blacklist", default=[]):
+                            continue
+                        if entry.name.startswith('.'):
+                            continue
+                        if current_depth < depth_limit:
+                            folders[entry.name] = _build_tree(entry.path, current_depth + 1)
+                        else:
+                            folders[entry.name] = {"files": [], "folders": {}}
+            except Exception:
+                pass
+
+            return {"files": files, "folders": folders}
+
+        try:
+            tree = _build_tree(project_path, 0)
+            return self.result(tree, success=True)
+        except Exception as e:
+            return self.result(f"error: {e}", success=False)
 
     async def list_project_folder(self, project_name: str, sub_path: list = None):
         """Lists the immediate contents of a specific path within a project (non-recursive). The path is a list of path elements, e.g. ['src', 'main.py'] translates to src/main.py"""
