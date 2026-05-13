@@ -57,11 +57,12 @@ default_config = {
 
 DEFAULT_MODULES = (
     "tutorial",
+    "docs",
     "identity",
+    "writing_style",
     "models",
     "channel",
     "modules",
-    "module_maker",
     "chats",
     "context",
     "memory",
@@ -70,6 +71,7 @@ DEFAULT_MODULES = (
     "system",
     "scheduler",
     "calendar",
+    "calculator",
     "token_threshold",
     "time"
 )
