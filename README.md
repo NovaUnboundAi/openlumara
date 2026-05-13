@@ -28,7 +28,7 @@ https://github.com/user-attachments/assets/c6bde601-022b-44c4-80b7-16ed6c7f74eb
 <img width="480" alt="Screenshot_20260513_203359" src="https://github.com/user-attachments/assets/45e9f7b8-7f5a-44e2-bdc4-e9ea3f54d422" />
 
 > [!TIP]
-> Not sure how to use OpenLumara? Just ask your AI running on OpenLumara! It knows everything needed to get started. Find the instructions annoying? Just ask your AI to turn off the `channel` module, or use `/module channel` to toggle it off manually.
+> Not sure how to use OpenLumara? Just ask your AI running on OpenLumara! It knows everything needed to get started.
 
 Features:
 - Connects to any OpenAI API-compatible backend. That includes local AI (llamacpp, ollama, koboldcpp, and so on) and many cloud AI providers.
