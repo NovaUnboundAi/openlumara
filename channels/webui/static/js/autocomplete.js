@@ -44,7 +44,7 @@ async function initAutocomplete() {
     `;
     
     // Insert above input area
-    const inputArea = document.querySelector('.input-area');
+    const inputArea = document.querySelector('.upload-queue-container');
     if (inputArea) {
         inputArea.style.position = 'relative';
         inputArea.parentNode.insertBefore(autocompleteContainer, inputArea);
@@ -177,6 +177,7 @@ function handleKeydown(e) {
         scrollToSelected(items[selectedIndex]);
     } else if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < currentItems.length) {
             selectCommand(currentItems[selectedIndex]);
         }
@@ -220,7 +221,7 @@ function selectCommand(cmd) {
     const afterPrefix = currentValue.slice(prefixIndex + commandPrefix.length);
     
     // Replace everything after prefix with command name + space
-    const newValue = currentValue.slice(0, prefixIndex + commandPrefix.length) + cmd.name + ' ';
+    const newValue = cmd.name + ' ';
     msgInput.value = newValue;
     msgInput.focus();
     
