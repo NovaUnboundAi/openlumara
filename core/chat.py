@@ -388,6 +388,7 @@ class Chat:
                 # If tiktoken fails to load (e.g. no internet and no cache), we set to None
                 # _count_text_tokens then uses a character-based fallback
                 self.token_encoding = None
+                core.log_error("[TIKTOKEN] Falling back on character-based token counting.", e)
                 pass
 
         for message in _messages:
