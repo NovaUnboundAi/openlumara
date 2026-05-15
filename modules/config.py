@@ -19,6 +19,12 @@ class Config(core.module.Module):
         }
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not self.config.get("allow_ai_to_modify_config"):
+            self.disabled_tools.append("set")
+
     def _redact_sensitive_info(self, data):
         """Recursively redacts sensitive information from a dictionary or list."""
         sensitive_keywords = ["token", "key", "secret", "password", "auth", "credential"]
@@ -53,6 +59,9 @@ class Config(core.module.Module):
             return None
 
     async def set(self, path: list, value: str):
+        if not self.config.get("allow_ai_to_modify_config"):
+            return self.result("Config modification tools disabled for security", success=False)
+
         if not path:
             return self.result("Path cannot be empty", False)
 

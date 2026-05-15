@@ -4,14 +4,14 @@ class Modules(core.module.Module):
     """Helps your AI manage your modules"""
 
     settings = {
+        "insert_system_prompt": {
+            "description": "Whether to insert the list of enabled/disabled modules into the system prompt. Will make the AI aware of what modules are enabled/disabled at all times.",
+            "default": True
+        },
         "allow_ai_to_toggle": {
             "description": "Allow your AI to enable/disable modules for you. WARNING: very insecure and unsafe when used in public instances! Only use for private instances, and even then, keep the dangers of prompt injection in mind.",
             "default": False,
             "unsafe": True
-        },
-        "insert_system_prompt": {
-            "description": "Whether to insert the list of enabled/disabled modules into the system prompt. Will make the AI aware of what modules are enabled/disabled at all times.",
-            "default": True
         }
     }
 
