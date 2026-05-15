@@ -87,6 +87,18 @@
     animation: settingsContentFadeIn 0.3s ease-out forwards;
 }
 
+.settings-content a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.15s ease;
+    border-bottom: 1px solid transparent;
+}
+
+.settings-content a:hover {
+    text-decoration: underline;
+    color: var(--accent-light);
+}
+
 @keyframes settingsContentFadeIn {
     from {
         opacity: 0;
