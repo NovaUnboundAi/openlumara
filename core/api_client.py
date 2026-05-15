@@ -153,19 +153,21 @@ class APIClient():
         try:
             # We send a minimal request using the 'developer' role.
             # We use a very short prompt to minimize token usage/cost.
-            response = await self._request(
+            response = await self._AI.chat.completions.create(
                 # send dev -> user -> dev to check for multi-dev-message support,
                 # which is what the dev role is useful for in our case
-                [
+                model=self._model or "default",
+                messages=[
                     {"role": "developer", "content": "test"},
                     {"role": "user", "content": "test"},
                     {"role": "developer", "content": "test2"}
                 ],
                 max_tokens=1
             )
-            return True
         except Exception as e:
             return False
+
+        return True
 
     def set_model(self, name: str):
         self._model = name
