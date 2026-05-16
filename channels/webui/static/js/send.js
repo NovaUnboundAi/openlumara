@@ -954,7 +954,7 @@ const ERROR_MAP = {
     'default': {
         title: 'Something went wrong',
         message: 'An unexpected error occurred.',
-        action: 'Please try again or contact support if the problem persists.',
+        action: 'Please try again.',
         icon: 'error'
     }
 };
