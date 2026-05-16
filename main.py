@@ -71,7 +71,9 @@ async def main_loop(arg_list):
     # the manager class connects everything together
     manager = core.manager.Manager(cmdline_args=args)
     # run main loop
-    return await manager.run()
+    result = await manager.run()
+    manager = None # wipe it all
+    return result
 
 def run_from_args(arg_list: list = []):
     while True:

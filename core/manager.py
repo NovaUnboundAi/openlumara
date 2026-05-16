@@ -24,6 +24,7 @@ class Manager:
         self.channel = None # current active channel. gets dynamically switched around
         self.modules = {}
         self.tools = []
+        self.tool_names = []
         self.pure_mode = False
         self.coding_mode = False
 
@@ -125,6 +126,11 @@ class Manager:
             core.log("core", f"Modules loaded: {', '.join(loaded_module_names)}")
         else:
             core.log("core", "All modules are disabled")
+
+        # create an array of all enabled tools so that we can reference it in the future
+        for tool in self.tools:
+            tool_name = tool.get("function").get("name")
+            self.tool_names.append(tool_name)
 
         # Attempt API connection but don't fail if it doesn't work
         await self._initialize_api_connection()
