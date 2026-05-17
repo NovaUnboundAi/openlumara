@@ -78,6 +78,24 @@ async function init() {
 
         window.addEventListener('resize', handleTitleBarResize);
 
+        // Sound default initialization
+        const soundDefaults = {
+            send_message: true,
+            response_start: true,
+            token: false,
+            typing: true,
+            reasoning_end: true,
+            completion: true,
+            typewriter: false
+        };
+
+        Object.entries(soundDefaults).forEach(([id, enabled]) => {
+            const key = `${id}Enabled`;
+            if (!localStorage.getItem(key)) {
+                localStorage.setItem(key, enabled.toString());
+            }
+        });
+
         // WebSocket Connection
         let socket = null;
         let reconnectAttempts = 0;

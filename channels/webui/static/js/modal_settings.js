@@ -2631,7 +2631,7 @@ function createThemeSection() {
     const createSoundInput = (id, labelText, iconPath) => {
         const savedName = localStorage.getItem(`${id}SoundName`);
         const hasAudio = isAudioLoaded(id);
-        const isEnabled = localStorage.getItem(`${id}Enabled`) !== 'false'; // Default to true
+        const isEnabled = localStorage.getItem(`${id}Enabled`) === 'true'; // Default to false
 
         const container = document.createElement('div');
         container.className = 'sound-input-card';
@@ -2646,7 +2646,7 @@ function createThemeSection() {
         </div>
         <div class="sound-info">
         <span class="sound-label">${labelText}</span>
-        <span class="sound-filename ${hasAudio ? 'loaded' : ''}" id="${id}-filename">${savedName || 'No file selected'}</span>
+        <span class="sound-filename ${hasAudio ? 'loaded' : ''}" id="${id}-filename">${savedName || 'Using generated sound'}</span>
         </div>
         <label class="sound-toggle">
         <span class="toggle-label">Enabled</span>
@@ -2852,7 +2852,7 @@ function createThemeSection() {
 
     const savedTokenFreq = parseInt(localStorage.getItem('tokenFreq')) || 9000;
     const tokenFreqMin = 100;
-    const tokenFreqMax = 16000;
+    const tokenFreqMax = 9000;
     const tokenFreqStep = 100;
     const tokenFreqPercentage = ((savedTokenFreq - tokenFreqMin) / (tokenFreqMax - tokenFreqMin)) * 100;
 

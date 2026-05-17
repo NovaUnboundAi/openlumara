@@ -162,8 +162,8 @@ const TypewriterAudioManager = {
 
     // Play the sound asynchronously to avoid UI blocking
     play: function(id) {
-        // Check if the specific sound type is enabled
-        if (localStorage.getItem(`${id}Enabled`) === 'false') {
+        // Check if the specific sound type is NOT explicitly enabled
+        if (localStorage.getItem(`${id}Enabled`) !== 'true') {
             return;
         }
 
@@ -243,37 +243,36 @@ const TypewriterAudioManager = {
             };
 
             if (id === 'token') {
-                // very high-frequency sound inspired by what my GPU sounds like when generating tokens lol
                 const tokenFreq = Number(localStorage.getItem('tokenFreq')) || 9000;
-
                 ctx.resume();
 
-                const osc = ctx.createOscillator();
+                const osc1 = ctx.createOscillator();
+                const osc2 = ctx.createOscillator();
                 const gain = ctx.createGain();
-                const lpf = ctx.createBiquadFilter(); // Local LPF to kill the static
 
-                osc.frequency.value = tokenFreq; // <-- Dynamic frequency
-                osc.type = 'sine';
+                osc1.type = 'triangle';
+                osc2.type = 'triangle';
+                osc1.frequency.value = tokenFreq * 0.83; // ~7500hz base
+                osc2.frequency.value = (tokenFreq * 0.83) * 1.02; // slightly detuned chime
 
-                // LPF to tame harsh harmonics
-                lpf.type = 'lowpass';
-                lpf.frequency.value = 2000;
-                lpf.Q.value = 0.7;
-
-                // Proper envelope with decay
+                // smooth exponential envelope with safe UI volume
                 gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(vol * 0.5, t + 0.002);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.010);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.003);
+                gain.gain.exponentialRampToValueAtTime(0.15, t + 0.005);   // peak volume
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.080);  // smooth fade out
 
-                // Chain: osc → LPF → gain → master
-                osc.connect(lpf);
-                lpf.connect(gain);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
                 gain.connect(master);
 
-                osc.start(t);
-                osc.stop(t + 0.013);
+                osc1.start(t);
+                osc2.start(t);
+                osc1.stop(t + 0.085);
+                osc2.stop(t + 0.085);
                 return;
             }
+
 
             if (id === 'typing') {
                 const freq = typingFreq;
