@@ -2548,7 +2548,7 @@ function createThemeSection() {
     audioControls.className = 'settings-control-group';
 
     // Volume Control
-    const currentVolume = Math.round((parseFloat(localStorage.getItem('typewriterVolume') || '1.0')) * 100);
+    const currentVolume = Math.round((parseFloat(localStorage.getItem('typewriterVolume') || '0.7')) * 100);
 
     // Sync volume with manager on load
     TypewriterAudioManager.setVolume(currentVolume / 100);
@@ -2850,7 +2850,7 @@ function createThemeSection() {
     const tokenFreqRow = document.createElement('div');
     tokenFreqRow.className = 'slider-row';
 
-    const savedTokenFreq = parseInt(localStorage.getItem('tokenFreq')) || 8000;
+    const savedTokenFreq = parseInt(localStorage.getItem('tokenFreq')) || 9000;
     const tokenFreqMin = 100;
     const tokenFreqMax = 16000;
     const tokenFreqStep = 100;

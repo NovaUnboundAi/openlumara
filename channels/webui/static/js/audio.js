@@ -246,21 +246,23 @@ const TypewriterAudioManager = {
                 // very high-frequency sound inspired by what my GPU sounds like when generating tokens lol
                 const tokenFreq = Number(localStorage.getItem('tokenFreq')) || 9000;
 
+                ctx.resume();
+
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 const lpf = ctx.createBiquadFilter(); // Local LPF to kill the static
 
                 osc.frequency.value = tokenFreq; // <-- Dynamic frequency
-                osc.type = 'sawtooth';
+                osc.type = 'sine';
 
                 // LPF to tame harsh harmonics
                 lpf.type = 'lowpass';
-                lpf.frequency.value = 4000;
-                lpf.Q.value = 0.5;
+                lpf.frequency.value = 2000;
+                lpf.Q.value = 0.7;
 
                 // Proper envelope with decay
                 gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(vol * 0.7, t + 0.002);
+                gain.gain.linearRampToValueAtTime(vol * 0.5, t + 0.002);
                 gain.gain.exponentialRampToValueAtTime(0.001, t + 0.010);
 
                 // Chain: osc → LPF → gain → master
