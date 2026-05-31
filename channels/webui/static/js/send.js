@@ -1008,17 +1008,53 @@ function getErrorIcon(type) {
 
 
 /**
+ * Extracts a user-friendly message from a raw error string.
+ * Parses JSON error responses to extract the 'message' field if present.
+ */
+function extractErrorMessage(rawError) {
+    if (!rawError) return null;
+    
+    // Try to parse as JSON to extract the message field
+    try {
+        // Handle "Error code: 402 - {...}" format
+        const jsonMatch = rawError.match(/Error code: \d+ - (\{[\s\S]*\})/);
+        const jsonStr = jsonMatch ? jsonMatch[1] : rawError;
+        
+        const parsed = JSON.parse(jsonStr);
+        
+        // Navigate common error structures
+        if (parsed.error?.message) return parsed.error.message;
+        if (parsed.message) return parsed.message;
+        if (parsed.error?.error?.message) return parsed.error.error.message;
+        if (typeof parsed.error === 'string') return parsed.error;
+    } catch (e) {
+        // Not JSON, check for common patterns
+    }
+    
+    // Try to extract message from string format like "{'error': {'message': '...'}}"
+    const messageMatch = rawError.match(/'message':\s*'([^']+)'/);
+    if (messageMatch) return messageMatch[1];
+    
+    const messageMatch2 = rawError.match(/"message":\s*"([^"]+)"/);
+    if (messageMatch2) return messageMatch2[1];
+    
+    return null;
+}
+
+/**
  * Handles HTTP error responses (4xx, 5xx)
  */
 async function handleServerError(response, aiWrapper) {
     let errorType = 'server_error';
     let customMessage = '';
+    let rawError = '';
 
     try {
         const errorData = await response.json();
         // Use the error_type provided by backend, or fallback to the error message
         errorType = errorData.error_type || errorData.error || 'server_error';
-        customMessage = errorData.error || errorData.message || '';
+        customMessage = errorData.message || '';
+        rawError = errorData.raw_error || '';
     } catch (e) {
         // Fallback if JSON parsing fails
         if (response.status === 401 || response.status === 403) errorType = 'auth_failed';
@@ -1028,10 +1064,14 @@ async function handleServerError(response, aiWrapper) {
 
     const info = ERROR_MAP[errorType] || ERROR_MAP['default'];
 
-    // If the backend gave us a specific message, prioritize it over our generic one
-    const displayMsg = customMessage ? `${customMessage} (${info.message})` : info.message;
+    // Try to extract a meaningful message from raw error
+    const extractedMessage = extractErrorMessage(rawError);
+    
+    // Use extracted message, then custom message, then generic message
+    const displayMsg = extractedMessage || customMessage || info.message;
 
-    showApiConfigError(displayMsg, errorType, info.action);
+    // Pass both the display message and raw error
+    showApiConfigError(displayMsg, errorType, info.action, rawError);
     removePlaceholder();
 
     if (aiWrapper && aiWrapper.parentNode) {
@@ -1051,8 +1091,18 @@ function handleInlineError(data, aiMsgDiv, aiWrapper, streamStarted) {
     const type = errorDetails.error || 'api_error';
     const info = ERROR_MAP[type] || ERROR_MAP['default'];
 
-    // If the backend provides a specific error message, use it
-    const userMessage = errorDetails.message || info.message;
+    // Try to extract a meaningful message from raw error
+    const rawError = errorDetails.raw_error || '';
+    const extractedMessage = extractErrorMessage(rawError);
+    
+    // Use extracted message, then backend message, then generic message
+    const userMessage = extractedMessage || errorDetails.message || info.message;
+
+    // Build the error display - show message prominently, raw error in details
+    let errorContent = escapeHtml(userMessage);
+    if (rawError) {
+        errorContent += `<details class="api-error-details"><summary>Technical details</summary><pre>${escapeHtml(rawError)}</pre></details>`;
+    }
 
     aiMsgDiv.innerHTML = `
     <div class="api-error-inline">
@@ -1062,13 +1112,9 @@ function handleInlineError(data, aiMsgDiv, aiWrapper, streamStarted) {
     </svg>
     <span class="api-error-title">${escapeHtml(info.title)}</span>
     </div>
-    <div class="api-error-message">${escapeHtml(userMessage)}</div>
+    <div class="api-error-message">${errorContent}</div>
     <div class="api-error-footer">
     <div class="api-error-action">${escapeHtml(info.action)}</div>
-    <button class="retry-error-btn" onclick="retryLastMessage()">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20 8h-8a4 4 0 0 0 0 8h8"/></svg>
-    Retry
-    </button>
     </div>
     </div>`;
 }
@@ -1096,26 +1142,9 @@ function handleCatchError(err, aiMsgDiv, aiWrapper, streamStarted) {
     <div class="api-error-message">${escapeHtml(err.message)}</div>
     <div class="api-error-footer">
     <div class="api-error-action">${escapeHtml(info.action)}</div>
-    <button class="retry-error-btn" onclick="retryLastMessage()">Retry</button>
     </div>
     </div>`;
 }
-
-/**
- * Global helper to facilitate the "Retry" button functionality
- */
-window.retryLastMessage = async function() {
-    // Find the last user message in the chat
-    const userMessages = chat.querySelectorAll('.message-wrapper.user');
-    if (userMessages.length > 0) {
-        const lastUserMsg = userMessages[userMessages.length - 1];
-        const text = lastUserMsg.querySelector('.message-content-container').textContent;
-
-        // Clear the error UI and re-run send
-        finishStream();
-        await send(text);
-    }
-};
 
 // =============================================================================
 // Stop Generation
