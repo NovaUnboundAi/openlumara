@@ -22,14 +22,6 @@ def log_error(msg: str, e: Exception):
     else:
         log("error", f"{msg}: {e}")
 
-async def restart(channel = None):
-    if channel:
-        await channel.announce("restarting server..")
-    log("core", "restarting server..")
-
-    time.sleep(0.1)
-    os.execv(sys.argv[0], sys.argv)
-
 def get_path(path: str = ""):
     """get path relative to the project root directory. returns root path if no path is specified."""
     if not path:

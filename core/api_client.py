@@ -308,7 +308,7 @@ class APIClient():
         if not tools:
             tools = self.manager.tools
 
-        response = await self._request(context, tools=(tools if use_tools else None), use_thinking=use_thinking)
+        response = await self._request(context, tools=(tools if use_tools else None), use_thinking=use_thinking, **kwargs)
 
         # return errors if applicable
         if isinstance(response, dict) and "error" in response:
@@ -321,7 +321,7 @@ class APIClient():
             core.log_error("error while processing response from AI", e)
             return {"error": "processing_failed", "message": self._get_user_friendly_message("processing_failed", e)}
 
-    async def send_stream(self, context: list, use_tools=True, tools=None, use_thinking=True):
+    async def send_stream(self, context: list, use_tools=True, tools=None, use_thinking=True, **kwargs):
         """send a message to the LLM. is an iterable async generator"""
 
         self.cancel_request = False
@@ -330,7 +330,7 @@ class APIClient():
         if not tools:
             tools = self.manager.tools
 
-        response = await self._request(context, tools=(tools if use_tools else None), stream=True, use_thinking=use_thinking)
+        response = await self._request(context, tools=(tools if use_tools else None), stream=True, use_thinking=use_thinking, **kwargs)
 
         # return errors if applicable
         if isinstance(response, dict) and "error" in response:

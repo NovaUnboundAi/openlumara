@@ -63,6 +63,8 @@ class Channel:
                 pass
 
     async def _set_as_active_channel(self):
+        if self.manager.channel is self:
+            return
         self.manager.channel = self
 
         # give all modules a way to access this channel
