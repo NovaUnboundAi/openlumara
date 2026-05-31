@@ -273,10 +273,8 @@ class ToolcallManager:
                 final_reasoning_str = "".join(final_reasoning)
 
                 if final_content_str or final_reasoning_str:
-                    final_msg = {"role": "assistant"}
+                    final_msg = {"role": "assistant", "content": final_content_str}
 
-                    if final_content_str:
-                        final_msg["content"] = final_content_str
                     if final_reasoning_str:
                         final_msg["reasoning_content"] = final_reasoning_str
 

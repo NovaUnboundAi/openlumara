@@ -59,6 +59,12 @@ class Context:
             # Remove ghost messages and signal messages from history
             messages = [msg for msg in messages if not msg.get("ghost") and not msg.get("signal")]
 
+            # Strip invalid assistant messages (those without content or tool calls)
+            messages = [
+                msg for msg in messages
+                if not (msg.get("role") == "assistant" and not msg.get("content") and not msg.get("tool_calls"))
+            ]
+
             # If disabled, remove reasoning from all prior messages
             if not core.config.get("model", "keep_reasoning_in_context"):
                 messages = [{k: v for k, v in m.items() if k != "reasoning_content"} for m in messages]
