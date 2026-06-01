@@ -83,6 +83,21 @@ class WebReader(modules.http.Http):
                 del output["classes"]
                 output["message"] = "nothing could be scraped from the page!"
 
+        # Sanitize all extracted text before returning
+        for category in ["headers", "paragraphs", "images"]:
+            if category in output:
+                output[category] = [
+                    modules.http.ContentSanitizer.sanitize_html_content(item)
+                    for item in output[category]
+                ]
+
+        if "classes" in output:
+            for class_name, items in output["classes"].items():
+                output["classes"][class_name] = [
+                    modules.http.ContentSanitizer.sanitize_html_content(item)
+                    for item in items
+                ]
+
         return output
 
     # ---------------------------------------------------------
@@ -111,7 +126,10 @@ class WebReader(modules.http.Http):
             file_content = data.get("content", "")
 
             output_data = await self._process_webpage(file_content)
-            return self.result(self._wrap_untrusted(output_data), success=True)
+            return self.result(
+                self._wrap_untrusted(output_data, source=f"webpage:{domain}"),
+                success=True
+            )
 
         except Exception as e:
             return self.result(f"error {e}", False)
