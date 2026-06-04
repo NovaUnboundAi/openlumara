@@ -1218,12 +1218,12 @@ class Coder(modules.sandboxed_files.SandboxedFiles):
         except Exception as e:
             return self.result(f"error: {e}", success=False)
 
-    async def list_project_folder(self, project_name: str, sub_path: list = None):
+    async def list_project_folder(self, project_name: str, sub_path: str = None):
         """Lists the immediate contents of a specific path within a project (non-recursive). The path is a list of path elements, e.g. ['src', 'main.py'] translates to src/main.py"""
         sub_path = sub_path or []
         target_path = self._get_project_path(project_name)
         if sub_path:
-            target_path = os.path.join(target_path, *sub_path)
+            target_path = os.path.join(target_path, os.path.normpath(sub_path))
 
         if not os.path.exists(target_path):
             return self.result("error: path does not exist", success=False)
