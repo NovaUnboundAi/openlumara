@@ -127,6 +127,10 @@ class WebReader(modules.http.Http):
             content_type_header = data.get("headers", {}).get("Content-Type", "").lower()
             file_content = data.get("content", "")
 
+            # if no content type was provided, default to html
+            if not content_type_header or content_type_header.strip() = '':
+                content_type_header = "text/html"
+
             # Define allowed text-based content types
             allowed_text_types = {
                 "text/plain", "text/markdown", "text/x-markdown", "application/markdown",
