@@ -15,11 +15,7 @@ class StorageList(list):
         if not path:
             path = core.get_data_path()
 
-        full_path = os.path.join(path, name)
-        if os.path.isabs(full_path):
-            self.path = os.path.normpath(full_path)
-        else:
-            self.path = core.get_path(full_path)
+        self.path = core.get_path(os.path.join(path, name))
         self.name = os.path.basename(self.path)
         self.binary = False
 
@@ -133,11 +129,7 @@ class StorageDict(dict):
         if not path:
             path = core.get_data_path()
 
-        full_path = os.path.join(path, name)
-        if os.path.isabs(full_path):
-            self.path = os.path.normpath(full_path)
-        else:
-            self.path = core.get_path(full_path)
+        self.path = core.get_path(os.path.join(path, name))
 
         self.name = os.path.basename(self.path)
         self.binary = False
@@ -329,11 +321,7 @@ class StorageText:
         if not path:
             path = core.get_data_path()
 
-        full_path = os.path.join(path, name)
-        if os.path.isabs(full_path):
-            self.path = os.path.normpath(full_path)
-        else:
-            self.path = core.get_path(full_path)
+        self.path = core.get_path(os.path.join(path, name))
 
         self._data = ""
         self.autoreload = autoreload
