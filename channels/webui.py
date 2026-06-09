@@ -412,12 +412,42 @@ async def api_logout(request: Request):
 
 @app.get("/")
 async def index(request: Request):
+    base_js_files = ["icons", "variables"]
+
+    # get themes
+    themes_dir = os.path.join(WEBUI_DIR, "themes")
+    all_themes = {}
+
+    for f in os.listdir(themes_dir):
+        if f.endswith('.json'):
+            filepath = os.path.join(themes_dir, f)
+            with open(filepath, 'r', encoding='utf-8') as fh:
+                # Use filename (without .json) as the key
+                all_themes[f[:-5]] = json.load(fh)
+
+    js_parts = []
+    for key in sorted(all_themes.keys()):
+        # json.dumps converts the Python dict to a valid JS object string
+        js_parts.append(f"'{key}': {json.dumps(all_themes[key])}")
+
+    themes_script = f"window.themes = {{ {', '.join(js_parts)} }};"
+
+    main_js_files = [
+        "content_helpers", "markdown", "messages",
+        "msg_actions", "sidebar", "utils", "notif", "status", "polling", "chats",
+        "tags", "search", "export", "modals", "autocomplete", "input", "send", "upload", "theming",
+        "audio", "modal_settings",
+        "storage_editor", "responsive", "init"
+    ]
+
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "request": request,
-            "js_files": JS_FILES,
+            "base_js_files": base_js_files,
+            "main_js_files": main_js_files,
+            "themes_script": themes_script,
             "css_files": CSS_FILES,
             "require_login": bool(channel_instance.config.get("require_login"))
         }

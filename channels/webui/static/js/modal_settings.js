@@ -2205,7 +2205,6 @@ function createThemeSection() {
     const savedMode = localStorage.getItem('themeMode') || 'dark';
     const savedFontSize = localStorage.getItem('fontSize') || '16';
     const savedFontFamily = localStorage.getItem('fontFamily') || 'default';
-    const families = getThemeFamilies();
 
     // Font options with display names
     const fontOptions = [
@@ -3212,19 +3211,19 @@ function createThemeSection() {
     themeGrid.className = 'theme-grid';
     themeGrid.id = 'theme-grid-settings';
 
-    families.forEach((variants, family) => {
-        const previewThemeId = variants.dark || variants.light;
-        const previewTheme = themes[previewThemeId];
-        if (!previewTheme) return;
+    Object.entries(window.themes).forEach(([family, themeData]) => {
+        // themeData is now { dark: { vars... }, light: { vars... } }
+        const previewVars = themeData[savedMode] || themeData['dark'];
+        if (!previewVars) return;
 
         const btn = document.createElement('button');
         btn.className = 'theme-btn' + (family === savedFamily ? ' active' : '');
         btn.dataset.family = family;
         btn.type = 'button';
 
-        const bgColor = previewTheme.vars['--bg-primary'];
-        const accentColor = previewTheme.vars['--accent'];
-        const themeName = previewTheme.name;
+        const bgColor = previewVars['--bg-primary'];
+        const accentColor = previewVars['--accent'];
+        const themeName = family.charAt(0).toUpperCase() + family.slice(1); // Simple title case
 
         btn.innerHTML = `
         <div class="theme-preview" style="background: linear-gradient(135deg, ${bgColor} 50%, ${accentColor} 50%);"></div>
