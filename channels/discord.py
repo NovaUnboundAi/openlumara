@@ -125,9 +125,9 @@ class Client(discord.Client):
                             content = content.strip()
 
                         cmd_prefix = core.config.get("core").get("cmd_prefix", "/")
-                        is_cmd = content.lower().startswith(cmd_prefix.lower())
+                        is_cmd = content.lower().strip().startswith(cmd_prefix.lower())
                         try:
-                            cmd = content.split(cmd_prefix)[-1]
+                            cmd = content.split(cmd_prefix)[0]
                         except:
                             return await message.channel.send("Error while splitting command prefix.. somehow")
 
