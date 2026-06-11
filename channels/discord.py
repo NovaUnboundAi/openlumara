@@ -141,7 +141,13 @@ class Client(discord.Client):
 
                         # if group chat is enabled, make the AI aware of who is speaking
                         if group_chat:
-                            content += f"{message.author.display_name} said: {orig_content}"
+                            # strip cmd prefix from author name for safety
+                            # extra layer of security on top of the fix further below in the code
+                            cmd_prefix_temp = str(core.config.get("core", "cmd_prefix", default="/"))
+                            author_name = str(message.author.display_name).lstrip(cmd_prefix_temp)
+                            del(cmd_prefix_temp)
+
+                            content += f"{author_name} said: {orig_content}"
                         else:
                             content += orig_content
 
