@@ -839,6 +839,10 @@ function renderSettingsForm(categories, activeSettingsCategory = null) {
                         });
                         moduleListContainer.appendChild(listContent);
                         itemsContainer.appendChild(moduleListContainer);
+
+                        // Show the global toggle list
+                        const itemEl = createSettingItem(directGroup.items[0]);
+                        itemsContainer.appendChild(itemEl);
                     }
                 } else {
                     // Desktop: Show sidebar sub-list or module settings
