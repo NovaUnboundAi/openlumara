@@ -148,17 +148,21 @@ class Client(discord.Client):
                         # thanks to run0sh for finding this exploit
                         # you were previously able to simply fool the bot into executing a command
                         # by changing your name to something like `/module unsafe_shell`
-                        # moving it down here fixes that... lol
+                        # this fixes that.. lol
                         # human error, amiright?
                         # yay non-vibecoded mistakes
-                        cmd_prefix, cmd, args = await self.ai_channel.commands._extract_cmd(content)
-                        is_cmd = content.lower().strip().startswith(cmd_prefix.lower())
+                        for content_str in [content, orig_content]:
+                            cmd_prefix, cmd, args = await self.ai_channel.commands._extract_cmd(content_str)
+                            is_cmd = content_str.lower().strip().startswith(cmd_prefix.lower())
 
-                        if is_cmd:
-                            if cmd[0] not in self.public_commands:
-                                authorised_id = self.ai_channel.config.get("authorised_user_id")
-                                if authorised_id and message.author.id != int(authorised_id):
-                                    return await message.channel.send("Only the bot owner is allowed to use commands!")
+                            if is_cmd:
+                                if cmd[0] not in self.public_commands:
+                                    authorised_id = self.ai_channel.config.get("authorised_user_id")
+                                    if authorised_id and message.author.id != int(authorised_id):
+                                        return await message.channel.send("Only the bot owner is allowed to use commands!")
+                                else:
+                                    # send the pure command to the AI
+                                    content = f"{cmd_prefix}{' '.join(cmd)}"
 
                     except Exception as e:
                         return await message.channel.send(f"error while processing your request: {e}")
