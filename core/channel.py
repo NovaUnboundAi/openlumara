@@ -201,10 +201,8 @@ class Channel:
                 try:
                     cmd_response = await self.commands.process_input(message, authorized=commands_authorized)
                 except Exception as e:
-                    # Always log full traceback for easier debugging
-                    import traceback
-                    traceback.print_exc()
                     core.log_error("error while executing command", e)
+                    return {"role": "assistant", "content": str(e)}
 
                 if cmd_response:
                     return {"role": "assistant", "content": cmd_response}
@@ -320,6 +318,8 @@ class Channel:
                     cmd_response = await self.commands.process_input(user_message, authorized=commands_authorized)
                 except Exception as e:
                     core.log_error("error while executing command", e)
+                    yield {"type": "content", "content": str(e)}
+                    return
 
                 if cmd_response:
                     # insert and return the command response without sending it to the AI
