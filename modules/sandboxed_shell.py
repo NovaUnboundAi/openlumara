@@ -85,14 +85,18 @@ class SandboxedShell(core.module.Module):
 
             core.log("sandbox_shell", "Starting container..")
 
+            uid = self.config.get("run_as_user", default="65534")
+            nobody_support = "--cgroup-manager=cgroupfs" if uid == "65534" else ""
+
             start_cmd = [
                 self.runtime, 'run', '-d',
                 '--name', self.container_name,
-                '--user', self.config.get("run_as_user", default="65534"),
+                '--user', uid,
                 '--cpus', str(self.config.get("cpu_limit", default=0.5)),
                 '--memory', self.config.get("memory_limit", default="256m"),
                 '--pids-limit', str(self.config.get("max_processes", default=50)),
                 '--network', 'bridge' if self.config.get("internet_access", default=False) else 'none',
+                nobody_support,
                 '--rm',
             ]
 
