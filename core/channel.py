@@ -184,7 +184,7 @@ class Channel:
     #             # if we hit an error, back off for a second so we don't spam the logs
     #             await asyncio.sleep(1)
 
-    async def send(self, message: dict):
+    async def send(self, message: dict, commands_authorized=False):
         """sends a message to the AI from within the current channel"""
 
         # as soon as user sends a message in this channel, set current channel (tracked in the manager) to this one
@@ -199,7 +199,7 @@ class Channel:
 
             if is_cmd and message.get("role", "user") == "user":
                 try:
-                    cmd_response = await self.commands.process_input(message)
+                    cmd_response = await self.commands.process_input(message, authorized=commands_authorized)
                 except Exception as e:
                     # Always log full traceback for easier debugging
                     import traceback
@@ -300,7 +300,7 @@ class Channel:
 
         return self.format_message(assistant_message)
 
-    async def send_stream(self, message: dict):
+    async def send_stream(self, message: dict, commands_authorized=False):
         """sends a message to the AI from within the current channel, streaming version"""
 
         # as soon as user sends a message in this channel, set current channel (tracked in the manager) to this one
@@ -317,7 +317,7 @@ class Channel:
 
             if is_cmd and message.get("role", "user") == "user":
                 try:
-                    cmd_response = await self.commands.process_input(user_message)
+                    cmd_response = await self.commands.process_input(user_message, authorized=commands_authorized)
                 except Exception as e:
                     core.log_error("error while executing command", e)
 

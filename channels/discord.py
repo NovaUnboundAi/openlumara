@@ -7,8 +7,6 @@ import json_repair
 MAX_CHARS = 1900
 
 class Client(discord.Client):
-    public_commands = ("new", "clear", "status", "stop")
-
     def __init__(self, channel, **kwargs):
         super(Client, self).__init__(**kwargs)
         self.ai_channel = channel
@@ -101,6 +99,11 @@ class Client(discord.Client):
         if message.channel.id != int(self.ai_channel.config.get("target_channel_id")):
             return
 
+        commands_authorized = False
+        authorized_id = self.ai_channel.config.get("authorized_user_id")
+        if authorized_id and message.author.id == int(authorized_id):
+            commands_authorized = True
+
         if message.content:
             # only reply if mentioned
             mentioned = False
@@ -124,54 +127,41 @@ class Client(discord.Client):
                             content = content.replace("<@>", "")
                             content = content.strip()
 
-                        orig_content = str(content)
-                        content = ""
+                        cmd_prefix, cmd, args = await self.ai_channel.commands._extract_cmd(content_str)
+                        is_cmd = content_str.lower().strip().startswith(cmd_prefix.lower())
 
-                        group_chat = self.ai_channel.config.get("enable_group_chat")
-
-                        # check if the message is a reply
-                        if message.reference:
-                            # this gets the actual message object being replied to
-                            replied_message = await message.channel.fetch_message(message.reference.message_id)
-
-                            # format it like a reply
-                            replied_content = replied_message.content or ""
-                            replied_message_formatted = "> "+"\n> ".join(replied_content.split("\n"))
-                            content += f"in reply to:\n{replied_message_formatted}\n\n"
-
-                        # if group chat is enabled, make the AI aware of who is speaking
-                        if group_chat:
-                            # strip cmd prefix from author name for safety
-                            # extra layer of security on top of the fix further below in the code
-                            cmd_prefix_temp = str(core.config.get("core", "cmd_prefix", default="/"))
-                            author_name = str(message.author.display_name).lstrip(cmd_prefix_temp)
-                            del(cmd_prefix_temp)
-
-                            content += f"{author_name} said: {orig_content}"
+                        if is_cmd:
+                            # send the pure command to the AI
+                            # command authorization checks were moved to the core framework
+                            # so that it's much more secure
+                            content = f"{cmd_prefix}{' '.join(cmd)}"
                         else:
-                            content += orig_content
+                            orig_content = str(content)
+                            content = ""
 
-                        # thanks to run0sh for finding this exploit
-                        # you were previously able to simply fool the bot into executing a command
-                        # by changing your name to something like `/module unsafe_shell`
-                        # this fixes that.. lol
-                        # human error, amiright?
-                        # yay non-vibecoded mistakes
-                        for content_str in [content, orig_content]:
-                            cmd_prefix, cmd, args = await self.ai_channel.commands._extract_cmd(content_str)
-                            is_cmd = content_str.lower().strip().startswith(cmd_prefix.lower())
+                            group_chat = self.ai_channel.config.get("enable_group_chat")
 
-                            if is_cmd:
-                                if len(cmd) <= 0:
-                                    raise Exception("command was somehow zero length. aborting for security reasons.")
+                            # check if the message is a reply
+                            if message.reference:
+                                # this gets the actual message object being replied to
+                                replied_message = await message.channel.fetch_message(message.reference.message_id)
 
-                                if cmd[0] not in self.public_commands:
-                                    authorised_id = self.ai_channel.config.get("authorised_user_id")
-                                    if authorised_id and message.author.id != int(authorised_id):
-                                        return await message.channel.send("Only the bot owner is allowed to use commands!")
+                                # format it like a reply
+                                replied_content = replied_message.content or ""
+                                replied_message_formatted = "> "+"\n> ".join(replied_content.split("\n"))
+                                content += f"in reply to:\n{replied_message_formatted}\n\n"
 
-                                # send the pure command to the AI
-                                content = f"{cmd_prefix}{' '.join(cmd)}"
+                            # if group chat is enabled, make the AI aware of who is speaking
+                            if group_chat:
+                                # strip cmd prefix from author name for safety
+                                # extra layer of security on top of the fix further below in the code
+                                cmd_prefix_temp = str(core.config.get("core", "cmd_prefix", default="/"))
+                                author_name = str(message.author.display_name).lstrip(cmd_prefix_temp)
+                                del(cmd_prefix_temp)
+
+                                content += f"{author_name} said: {orig_content}"
+                            else:
+                                content += orig_content
 
                     except Exception as e:
                         return await message.channel.send(f"error while processing your request: {e}")
@@ -179,12 +169,15 @@ class Client(discord.Client):
                     try:
                         if self.ai_channel.config.get("use_message_streaming"):
                             response_obj = self.ai_channel.format_stream_for_text(
-                                self.ai_channel.send_stream({"role": "user", "content": content}),
+                                self.ai_channel.send_stream(
+                                    {"role": "user", "content": content},
+                                    commands_authorized=commands_authorized
+                                ),
                                 chunk_size=MAX_CHARS
                             )
                             await self._stream_to_discord(response_obj, message.channel)
                         else:
-                            response_obj = await self.ai_channel.send({"role": "user", "content": content})
+                            response_obj = await self.ai_channel.send({"role": "user", "content": content}, commands_authorized=commands_authorized)
 
                             if response_obj:
                                 response_content = response_obj.get("content")
@@ -207,7 +200,7 @@ class Discord(core.channel.Channel):
             "description": "Your discord token. Get it in the [Discord Developer Portal](https://discord.com/developers/applications)",
             "default": None
         },
-        "authorised_user_id": {
+        "authorized_user_id": {
             "description": "Your personal user ID. Get it by enabling *Developer Mode* in Discord (open Settings, then go to Developer, then toggle on Developer Mode), then right clicking your name and clicking/tapping *Copy ID*",
             "default": None
         },
