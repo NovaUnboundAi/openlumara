@@ -544,7 +544,7 @@ def load(file_path=None):
     global _registry_cache
     _registry_cache = None
 
-    config = core.storage.StorageDict(filename, "yaml", path=dirname, autoreload=False)
+    config = core.storage.StorageDict(filename, "yaml", path=dirname)
     if not config:
         new_config = True
 
