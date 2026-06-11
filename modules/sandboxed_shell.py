@@ -38,6 +38,10 @@ class SandboxedShell(core.module.Module):
             "default": 30,
             "description": "Maximum amount of time a process inside the shell is allowed to run for"
         },
+        "temporary_filesystem_size_limit": {
+            "default": "512m",
+            "description": "Maximum size for the temporary sandbox disk (e.g., 512m, 2g). Only works when persistent_data is off."
+        },
         "image": "python:3.11-slim",
         "run_as_user": {
             "default": "65534",
@@ -95,7 +99,8 @@ class SandboxedShell(core.module.Module):
             if self.config.get("persistent_data", default=True):
                 start_cmd.extend(['-v', f"{self.host_workspace}:/data:Z"])
             else:
-                start_cmd.extend(['--tmpfs', '/data'])
+                limit = self.config.get("temporary_filesystem_size_limit", default="512m")
+                start_cmd.extend(['--tmpfs', f"/data:size={limit},mode=1777"])
 
             # set working dir to /data
             start_cmd.extend(['-w', '/data'])
