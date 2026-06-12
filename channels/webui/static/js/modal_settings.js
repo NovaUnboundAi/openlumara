@@ -13,6 +13,24 @@ let activeModule = null; // Tracks the selected module for Desktop split view / 
 let activeChannel = null; // Tracks the selected channel for Desktop split view / Mobile drill-down
 let categories = {}; // Global reference to settings categories
 let modulesExpanded = { modules: false, user_modules: false, channels: false }; // Tracks expansion state per category
+let isMobile = window.innerWidth <= 768; // Tracks mobile viewport state
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    const newIsMobile = window.innerWidth <= 768;
+    if (newIsMobile !== isMobile) {
+        isMobile = newIsMobile;
+        // Re-render settings UI if the modal is currently open
+        const overlay = document.getElementById('settings-overlay');
+        if (overlay && overlay.classList.contains('show')) {
+            renderSettingsNav(categories);
+            if (activeSettingsCategory) {
+                renderSettingsForm(categories, activeSettingsCategory);
+            }
+        }
+    }
+});
 
 // Category icons
 const SETTINGS_ICONS = {
@@ -594,7 +612,7 @@ let activeSettingsCategory = null;
 function renderSettingsNav(categories) {
     const nav = document.getElementById('settings-nav');
     nav.innerHTML = '';
-    const isMobile = window.innerWidth <= 768;
+ 
 
     const sortedCats = Object.entries(categories)
     .sort(([a, catA], [b, catB]) => (catA.order || 0) - (catB.order || 0));
@@ -766,7 +784,7 @@ function renderSettingsForm(categories, activeSettingsCategory = null) {
     const form = document.getElementById('settings-form');
     form.innerHTML = '';
 
-    const isMobile = window.innerWidth <= 768;
+ 
 
     // Mobile: Show category list if none selected
     if (isMobile && !activeSettingsCategory) {
