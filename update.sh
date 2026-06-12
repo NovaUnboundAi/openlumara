@@ -41,7 +41,7 @@ if [ -f ".requirements_hash" ] && [ -f "requirements.txt" ]; then
     fi
 else
     echo "requirements.txt changed (or first run), updating dependencies..."
-    pip install -q -r requirements.txt
+    pip install -r requirements.txt
     if [ -f "requirements.txt" ]; then
         sha256sum requirements.txt | awk '{print $1}' > .requirements_hash
     fi

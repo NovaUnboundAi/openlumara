@@ -49,7 +49,7 @@ if exist ".requirements_hash" (
     )
 ) else (
     echo requirements.txt changed (or first run), updating dependencies...
-    venv\Scripts\python -m pip install -q -r requirements.txt
+    venv\Scripts\python -m pip install -r requirements.txt
     for /f "delims=" %%a in ('powershell -Command "(Get-FileHash requirements.txt).Hash" 2^>nul') do set NEW_HASH=%%a
     if defined NEW_HASH (
         echo !NEW_HASH! > .requirements_hash
