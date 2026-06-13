@@ -7,7 +7,6 @@ import glob as glob_module
 import time
 import shutil
 import stat
-import modules.sandboxed_files
 from typing import Dict, Any, Optional, Tuple
 
 # --- Tree-sitter Setup ---
@@ -56,7 +55,7 @@ except Exception as e:
     disabled_reason = f"Unexpected error during setup: {e}"
 
 
-class Coder(modules.sandboxed_files.SandboxedFiles):
+class Coder(core.module.Module):
     """Code editing and file management tools for AI assistants.
 
     Provides two modes of operation:
@@ -287,6 +286,9 @@ class Coder(modules.sandboxed_files.SandboxedFiles):
         super().__init__(*args, **kwargs)
         self._parser_cache = {}
         self.enabled_tools = []
+        self.sandbox_path = os.path.expanduser(
+            str(self.config.get("sandbox_folder", default="~/sandbox"))
+        ).rstrip(os.path.sep)
 
         if HAS_TREE_SITTER:
             if not loaded_languages:
