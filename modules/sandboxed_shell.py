@@ -381,12 +381,16 @@ class SandboxedShell(core.module.Module):
 
             stdout = content.get("stdout")
             stderr = content.get("stderr")
+            errors = content.get("errors")
 
             output = []
             if stdout:
                 output.append(stdout)
             if stderr:
                 output.append(stderr)
+
+            if errors:
+                output.append("errors:\n"+"\n".join(errors))
 
             return "\n\n".join(output) or "NO OUTPUT"
         return str(result)
