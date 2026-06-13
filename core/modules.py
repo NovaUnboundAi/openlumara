@@ -13,6 +13,8 @@ except ImportError:
 # modules that should have their prompts inserted even when tools are off
 nonagentic = ("characters", "time")
 
+reported_missing = []
+
 # --------------------------------------
 # dependency auto-installer/uninstaller
 # --------------------------------------
@@ -42,6 +44,7 @@ def _install_deps(module_name, packages):
     if not packages:
         return
     core.log(module_name, f"installing dependencies: {', '.join(packages)}")
+
     try:
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", "--quiet"] + packages,
@@ -56,6 +59,7 @@ def _uninstall_deps(module_name, packages):
     if not packages:
         return
     core.log(module_name, f"uninstalling dependencies: {', '.join(packages)}")
+
     try:
         subprocess.check_call(
             [sys.executable, "-m", "pip", "uninstall", "-y", "--quiet"] + packages,
@@ -121,7 +125,7 @@ def uninstall_module_deps(package, module_name):
 # --------------------------
 # module loading
 # --------------------------
-def load(package, base_class = None, filter: list = None, reload: bool = False):
+def load(package, base_class = None, filter: list = None, reload: bool = False, loading_config=False):
     """
     loops through the specified package imported with `import whatever`, then checks inside those packages for any classes that derive from base_class, and return a tuple of those classes so we can use them as modules, channels etc
 
@@ -149,6 +153,10 @@ def load(package, base_class = None, filter: list = None, reload: bool = False):
             if deps:
                 missing = _check_missing_deps(deps)
                 if missing:
+                    if modname not in reported_missing and not loading_config:
+                        core.log(modname, "Warning: loading skipped because of missing dependencies")
+                        reported_missing.append(modname)
+
                     continue
 
         try:

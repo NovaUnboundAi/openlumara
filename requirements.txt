@@ -1,20 +1,8 @@
 # base requirements
 openai
 tiktoken
-prompt_toolkit
 msgpack
 pyyaml
 json-repair
-aiofiles
 python-ulid
-
-# webUI stuff
 requests
-jinja2
-itsdangerous
-# older starlette versions have a critical security vulnerability
-starlette >= 1.0.1
-fastapi
-uvicorn
-websockets
-python-multipart

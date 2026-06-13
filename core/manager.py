@@ -76,13 +76,17 @@ class Manager:
 
         core.log("core", "Loading channels")
         # install dependencies
-        for chan_name in enabled_channels:
-            core.modules.install_module_deps(channels, chan_name)
+        if not self.args.disable_auto_installer:
+            for chan_name in enabled_channels:
+                core.modules.install_module_deps(channels, chan_name)
 
         for channel in core.modules.load(channels, core.channel.Channel, filter=enabled_channels, reload=True):
             # add an instance of the channel's class to self.channels
             channel_name = core.modules.get_name(channel)
-            self.channels[channel_name] = channel(self)
+            try:
+                self.channels[channel_name] = channel(self)
+            except Exception as e:
+                core.log(channel_name, f"failed to load channel: {core.detail_error(e)}")
 
         # start channels (execute their .run() method)
         for channel_name, channel in self.channels.items():
@@ -101,8 +105,9 @@ class Manager:
             core.log("core", "Loading core modules")
 
             # install dependencies
-            for mod_name in enabled_modules:
-                core.modules.install_module_deps(modules, mod_name)
+            if not self.args.disable_auto_installer:
+                for mod_name in enabled_modules:
+                    core.modules.install_module_deps(modules, mod_name)
 
             # import/load only the enabled modules
             for module in core.modules.load(modules, core.module.Module, filter=enabled_modules, reload=True):
@@ -119,8 +124,9 @@ class Manager:
             core.log("core", "Loading user modules")
 
             # install dependencies
-            for mod_name in enabled_user_modules:
-                core.modules.install_module_deps(user_modules, mod_name)
+            if not self.args.disable_auto_installer:
+                for mod_name in enabled_user_modules:
+                    core.modules.install_module_deps(user_modules, mod_name)
 
             for module in core.modules.load(user_modules, core.module.Module, filter=enabled_user_modules, reload=True):
                 try:
@@ -137,19 +143,20 @@ class Manager:
         else:
             core.log("core", "All modules are disabled")
 
-        # uninstall dependencies for disabled modules (only if deps are still installed)
-        disabled_channels = core.config.get("channels", "disabled", [])
-        disabled_modules = core.config.get("modules", "disabled", [])
-        disabled_user_modules = core.config.get("user_modules", "disabled", [])
+        if not self.args.disable_auto_installer:
+            # uninstall dependencies for disabled modules (only if deps are still installed)
+            disabled_channels = core.config.get("channels", "disabled", [])
+            disabled_modules = core.config.get("modules", "disabled", [])
+            disabled_user_modules = core.config.get("user_modules", "disabled", [])
 
-        for chan_name in disabled_channels:
-            core.modules.uninstall_module_deps(channels, mod_name)
+            for chan_name in disabled_channels:
+                core.modules.uninstall_module_deps(channels, chan_name)
 
-        for mod_name in disabled_modules:
-            core.modules.uninstall_module_deps(modules, mod_name)
+            for mod_name in disabled_modules:
+                core.modules.uninstall_module_deps(modules, mod_name)
 
-        for mod_name in disabled_user_modules:
-            core.modules.uninstall_module_deps(user_modules, mod_name)
+            for mod_name in disabled_user_modules:
+                core.modules.uninstall_module_deps(user_modules, mod_name)
 
         # create an array of all enabled tools so that we can reference it in the future
         for tool in self.tools:
@@ -162,7 +169,7 @@ class Manager:
         # run everything
         core.log("core", "Startup complete")
 
-        if "webui" in enabled_channels:
+        if "webui" in self.channels:
             webui_url = self.channels["webui"].url
             print(flush=True)
             print(f"Please open the WebUI at {webui_url}", flush=True)

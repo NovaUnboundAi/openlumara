@@ -71,6 +71,8 @@ class ToolCallRenderer:
 class Cli(core.channel.Channel):
     """Talk to your AI from the terminal! Auto-disables itself when ran as a background server."""
 
+    dependencies = ["prompt_toolkit"]
+
     running = True
 
     def _setup_style(self):

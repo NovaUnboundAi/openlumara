@@ -43,6 +43,7 @@ async def main_loop(arg_list):
     args_main.add_argument("--quiet", help="surpress logs", action="store_true")
     args_main.add_argument("--insecure_tls", help="Disable verification for SSL/TLS certs. Use when your API uses self-signed or unvalid certificates.", action="store_true")
     args_main.add_argument("--debug", help="Enable debug mode (display all warnings and errors)", action="store_true")
+    args_main.add_argument("--disable_auto_installer", help="Disable automatic installation/uninstallation of module/channel dependencies", action="store_true")
 
     args_settings = arg_parser.add_argument_group("settings")
     module_structure = core.config.get_module_structure()

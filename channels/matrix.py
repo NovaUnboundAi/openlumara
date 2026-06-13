@@ -82,6 +82,8 @@ class Matrix(core.channel.Channel):
     Matrix channel with encryption support. Experimental, a bit unstable.
     """
 
+    dependencies = ["matrix-nio[e2e]"]
+
     running = False
 
     settings = {

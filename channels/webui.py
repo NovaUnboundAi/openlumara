@@ -1436,6 +1436,16 @@ async def favicon():
 class Webui(core.channel.Channel):
     """Polished web interface that can be used on any device, granting you a fully private way to talk to your AI."""
 
+    dependencies = [
+        "jinja2",
+        "itsdangerous",
+        "starlette>=1.0.1",
+        "fastapi",
+        "uvicorn",
+        "websockets",
+        "python-multipart"
+    ]
+
     settings = {
         "network_mode": {
             "type": "select",

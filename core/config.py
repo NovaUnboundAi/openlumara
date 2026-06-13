@@ -198,15 +198,15 @@ def _get_registry_data(enabled_channels=None, enabled_modules=None, enabled_user
 
     # Only import and instantiate ENABLED items
     chan_inst = list(core.modules.load(
-        channels, core.channel.Channel, filter=enabled_channels
+        channels, core.channel.Channel, filter=enabled_channels, loading_config=True
     )) if enabled_channels else []
 
     mod_inst = list(core.modules.load(
-        modules, core.module.Module, filter=enabled_modules
+        modules, core.module.Module, filter=enabled_modules, loading_config=True
     )) if enabled_modules else []
 
     user_mod_inst = list(core.modules.load(
-        user_modules, core.module.Module, filter=enabled_user_modules
+        user_modules, core.module.Module, filter=enabled_user_modules, loading_config=True
     )) if enabled_user_modules else []
 
     result = [
@@ -318,7 +318,7 @@ def _get_module_schema_cache():
             package, base_class = package_map[section_key]
             try:
                 # skip reloading modules because we just want the data
-                classes = core.modules.load(package, base_class, reload=False)
+                classes = core.modules.load(package, base_class, reload=False, loading_config=True)
 
                 for cls in classes:
                     name = core.modules.get_name(cls)
