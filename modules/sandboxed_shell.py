@@ -116,8 +116,8 @@ class SandboxedShell(core.module.Module):
         self.container_name = self._get_unique_name()
 
         # Build container run command with strict security settings
-        # Use detached mode for better lifecycle control instead of --rm
-        cmd = [self.runtime, 'run', '-d']
+        # We run in the foreground to capture stdout/stderr directly and reliably
+        cmd = [self.runtime, 'run', '--name', self.container_name]
 
         # Use gvisor runtime if available
         if self.use_gvisor:
@@ -126,7 +126,6 @@ class SandboxedShell(core.module.Module):
                 cmd.extend(["--runtime-flag", "ignore-cgroups"])
 
         cmd.extend([
-            '--name', self.container_name,
             '--user', uid,
             '--cpus', str(self.config.get("cpu_limit", default=0.5)),
             '--memory', self.config.get("memory_limit", default="256m"),
@@ -149,25 +148,12 @@ class SandboxedShell(core.module.Module):
         output_limit = self.config.get("output_limit")
 
         try:
-            # Start the container in detached mode
-            await self._run_async_cmd(cmd, timeout=5)
+            # Run the command in the foreground and capture output directly
+            stdout, stderr, exit_code = await self._run_async_cmd(cmd, timeout=timeout)
             
-            # Wait for container to finish and capture the exit code
-            try:
-                stdout_wait, stderr_wait, exit_code = await asyncio.wait_for(
-                    self._run_async_cmd([self.runtime, 'wait', self.container_name], timeout=timeout),
-                    timeout=timeout
-                )
-            except asyncio.TimeoutError:
-                # Kill the container first
-                await self._run_async_cmd([self.runtime, 'kill', self.container_name], timeout=5)
+            if stdout is None: # This happens on TimeoutError in _run_async_cmd
                 return self.result(f"Command timed out after {timeout}s", False)
 
-            # Get container logs
-            stdout, stderr, _ = await self._run_async_cmd(
-                [self.runtime, 'logs', self.container_name], timeout=5
-            )
-            
             stdout_text = stdout.decode().strip()[:output_limit] if stdout else ""
             stderr_text = stderr.decode().strip()[:output_limit] if stderr else ""
 
