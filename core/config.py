@@ -89,6 +89,9 @@ class ConfigManager:
         """Shorthand for accessing nested config values.
         Usage: config.get("api", "url") or config.get("api", "url", default_value)
         """
+        # reload from disk
+        self.root_config.load()
+
         default = kwargs.get("default", None)
         if not args:
             return default
@@ -115,6 +118,9 @@ class ConfigManager:
         return current
 
     def to_dict(self):
+        # reload from disk
+        self.root_config.load()
+
         # Start from the root config and traverse through the base path
         current = self.root_config
         for k in self.base_path:
