@@ -151,7 +151,7 @@ class StorageList(list):
 
 class StorageDict(dict):
     """subclassed dict that handles storage of data. supports a variety of storage formats."""
-    def __init__(self, name: str, type: str, manager=None, path=None, autoload=True, *args):
+    def __init__(self, name: str, type: str, manager=None, path=None, autoload=True, override_temporary=False, *args):
         super().__init__(*args)
 
         # default to openlumara data folder if no path specified
@@ -162,6 +162,10 @@ class StorageDict(dict):
 
         self.name = os.path.basename(self.path)
         self.binary = False
+
+        # this is mainly for the config, so that we can still make changes in temporary mode
+        # but who knows what it might be needed for in the future
+        self.override_temporary = override_temporary
 
         # cache for change detection
         self._last_modified = 0.0
@@ -196,7 +200,7 @@ class StorageDict(dict):
             self.manager = manager
 
         if os.path.exists(self.path):
-            if autoload and not TEMPORARY:
+            if autoload and not (TEMPORARY and not self.override_temporary):
                 self.load()
         else:
             self.save()
@@ -286,7 +290,7 @@ class StorageDict(dict):
 
     def save(self):
         """save content to file"""
-        if TEMPORARY:
+        if TEMPORARY and not self.override_temporary:
             return True
 
         match self.type:
@@ -415,7 +419,7 @@ class StorageDict(dict):
         return True
 
     def get(self, *args, **kwargs):
-        if not TEMPORARY:
+        if not TEMPORARY and not self.override_temporary:
             self.load()
 
         return super().get(*args)

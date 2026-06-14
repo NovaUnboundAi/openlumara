@@ -549,12 +549,9 @@ def load(file_path=None):
     global _registry_cache
     _registry_cache = None
 
-    config = core.storage.StorageDict(filename, "yaml", path=dirname)
+    config = core.storage.StorageDict(filename, "yaml", path=dirname, override_temporary=True)
     if not config:
         new_config = True
-
-    if not new_config and core.storage.TEMPORARY:
-        config.load()
 
     raw_config = dict(config) if config else {}
 

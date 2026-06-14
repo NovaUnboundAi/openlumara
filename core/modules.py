@@ -133,6 +133,10 @@ async def uninstall_module_deps(package, module_name, manager):
         is_module = False
         for attr in dir(mod):
             obj = getattr(mod, attr)
+            if not inspect.isclass(obj):
+                # if it's somehow not a class.. SKIP
+                continue
+
             if issubclass(obj, core.module.Module):
                 is_module = True
             elif issubclass(obj, core.channel.Channel):
