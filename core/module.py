@@ -79,6 +79,10 @@ class Module:
                 cmd_name = method._command_name
                 register_command_handler(cmd_name, cls, method)
 
+    # alias for self.manager.log()
+    def log(self, category: str, message: str):
+        return self.manager.log(category, message)
+
     async def _check(self):
         pass
 
@@ -90,16 +94,16 @@ class Module:
             try:
                 await self.on_ready()
             except Exception as e:
-                core.log("module error", f"{self.name}: in on_ready(): {core.detail_error(e)}")
+                self.manager.log("module error", f"{self.name}: in on_ready(): {core.detail_error(e)}")
         if hasattr(self, "on_background"):
             if not core.module.is_empty_coroutine(self.on_background):
                 try:
                     task = asyncio.create_task(self.on_background(), name=self.name)
                     task.add_done_callback(self.manager._remove_async_task)
                     self.manager._async_tasks.add(task)
-                    core.log("core", f"Started background task {self.name}")
+                    self.manager.log("core", f"Started background task {self.name}")
                 except Exception as e:
-                    core.log("module error", f"{self.name}: in on_background(): {core.detail_error(e)}")
+                    self.manager.log("module error", f"{self.name}: in on_background(): {core.detail_error(e)}")
 
         return True
 

@@ -111,13 +111,16 @@ class Cli(core.channel.Channel):
         self._print_formatted(f"  {label}", style_class)
         self._print_formatted(f"{separator}", "separator")
 
+    def on_log(self, category, message):
+        print(f"[{category.upper()}] {message}")
+
     async def run(self):
         if not sys.stdin.isatty():
             return False
 
         # auto-disabled full CLI if cli lite is enabled
         if "cli_lite" in self.manager.channels:
-            core.log(self.name, "Full CLI disabled because CLI Lite is active")
+            self.log(self.name, "Full CLI disabled because CLI Lite is active")
             return False
 
         self._setup_style()
@@ -153,7 +156,7 @@ class Cli(core.channel.Channel):
         return True
 
     async def on_push(self, message: dict):
-        core.log("push", message.get("content").strip())
+        self.log("push", message.get("content").strip())
         print(flush=True)
 
     async def _process_message(self, msg):
@@ -213,7 +216,7 @@ class Cli(core.channel.Channel):
         }
         style_class = style_map.get(type)
         self._print_formatted(f"[cli] {message}\n", style_class)
-        core.log("cli", message)
+        self.log("cli", message)
 
     def on_shutdown(self):
         self.running = False

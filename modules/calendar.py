@@ -75,7 +75,7 @@ class Calendar(core.module.Module):
                 lambda: asyncio.create_task(self._notify_user(event))
             )
         except Exception as e:
-            core.log_error("[CALENDAR] failed to schedule notification", e)
+            self.log("calendar", f"failed to schedule notification: {core.detail_error(e)}")
 
     async def _notify_user(self, event: dict):
         if not event.get("notify"):

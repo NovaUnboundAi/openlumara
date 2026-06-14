@@ -6,9 +6,20 @@ import traceback
 import urllib.parse
 
 def log(category: str, msg: str):
-    """simple console log"""
-    if not core.quiet:
+    """
+    simple console log
+    WARNING: strictly for cases where the manager or channel instance(s) cannot be accessed
+    for example during config loading
+
+    using this will print into the terminal if the manager isn't loaded,
+    but otherwise will use the proper logging path via the manager
+
+    so this is a last resort
+    """
+    if not core.manager.global_instance:
         print(f"[{category.upper()}] {msg}", flush=True)
+    else:
+        core.manager.global_instance.log(category, msg)
 
 def detail_error(e: Exception):
     """provides more detail about an exception, but in a compact format"""
@@ -21,12 +32,17 @@ def detail_error(e: Exception):
     return f"{e} | {e.__traceback__.tb_frame.f_code.co_filename}, {e.__traceback__.tb_frame.f_code.co_name}, ln:{e.__traceback__.tb_lineno}\n\n{traceback.format_exc()}"
 
 def log_error(msg: str, e: Exception):
-    """console log but with extra spice for errors"""
-    if core.debug:
-        log("error", f"{msg}: {detail_error(e)}")
+    """
+    console log but with extra spice for errors
+    WARNING: strictly for cases where the manager or channel instance(s) cannot be accessed
+    for example during config loading
+    """
+    if not core.manager.global_instance:
+        print(f"[ERROR] {msg}: {detail_error(e)}")
         traceback.print_exception(e, file=sys.stdout)
     else:
-        log("error", f"{msg}: {e}")
+        tb = traceback.format_exception(e)
+        core.manager.global_instance.log("error", f"{msg}: {detail_error(e)}\n{tb}")
 
 def get_path(path: str = ""):
     """get path relative to the project root directory. returns root path if no path is specified."""

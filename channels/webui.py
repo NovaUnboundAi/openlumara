@@ -138,7 +138,7 @@ async def authenticate_websocket(websocket: WebSocket) -> Optional[str]:
             if session_data.get('username'):
                 return session_data.get('username')
         except Exception as e:
-            core.log("webui", f"WebSocket session auth failed: {e}")
+            channel_instance.log("webui", f"WebSocket session auth failed: {e}")
 
     # Method 2: Check Bearer token in query parameters
     token = websocket.query_params.get('token')
@@ -157,6 +157,8 @@ async def authenticate_websocket(websocket: WebSocket) -> Optional[str]:
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     # Authenticate before accepting connection
+    global channel_instance
+
     user = await authenticate_websocket(websocket)
 
     if user is None:
@@ -196,12 +198,12 @@ async def websocket_endpoint(websocket: WebSocket):
             except json.JSONDecodeError:
                 pass
             except Exception as e:
-                core.log("webui", f"WebSocket command error: {e}")
+                channel_instance.log("webui", f"WebSocket command error: {e}")
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
-        core.log("webui", f"WebSocket error: {e}")
+        channel_instance.log("webui", f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
 
@@ -1099,6 +1101,8 @@ async def get_module_info(user: str = Depends(require_auth)):
 @app.get("/storage/list")
 async def list_storage_files(user: str = Depends(require_auth)):
     """List all storage files in the data folder."""
+    global channel_instance
+
     data_dir = core.get_data_path()
     if not os.path.exists(data_dir):
         return {'files': []}
@@ -1128,7 +1132,7 @@ async def list_storage_files(user: str = Depends(require_auth)):
                             data = msgpack.unpackb(f.read())
                             file_type = 'dict' if isinstance(data, dict) else 'list' if isinstance(data, list) else 'text'
                 except Exception as e:
-                    core.log("webui", f"Error reading {rel_path}: {e}")
+                    channel_instance.log("webui", f"Error reading {rel_path}: {e}")
                     file_type = 'unknown'
             elif ext in ['.txt', '.md']:
                 file_type = 'text'
@@ -1147,6 +1151,8 @@ async def list_storage_files(user: str = Depends(require_auth)):
 @app.get("/storage/load")
 async def load_storage_file(file: str, user: str = Depends(require_auth)):
     """Load a specific storage file."""
+    global channel_instance
+
     data_dir = core.get_data_path()
     full_path = os.path.join(data_dir, file)
 
@@ -1193,12 +1199,14 @@ async def load_storage_file(file: str, user: str = Depends(require_auth)):
 
     except Exception as e:
         err_msg = core.detail_error(e) if core.debug else str(e)
-        core.log("webui", f"Error loading storage file: {e}")
+        channel_instance.log("webui", f"Error loading storage file: {e}")
         raise HTTPException(status_code=500, detail=err_msg)
 
 @app.post("/storage/save")
 async def save_storage_file(request: Request, user: str = Depends(require_auth)):
     """Save a storage file."""
+    global channel_instance
+
     data = await request.json()
     file_path = data.get('file')
     storage_type = data.get('type')
@@ -1255,17 +1263,19 @@ async def save_storage_file(request: Request, user: str = Depends(require_auth))
         else:
             raise HTTPException(status_code=400, detail="Unknown storage type")
 
-        core.log("webui", f"Saved storage file: {file_path}")
+        channel_instance.log("webui", f"Saved storage file: {file_path}")
         return {'success': True}
 
     except Exception as e:
         err_msg = core.detail_error(e) if core.debug else str(e)
-        core.log("webui", f"Error saving storage file: {e}")
+        channel_instance.log("webui", f"Error saving storage file: {e}")
         raise HTTPException(status_code=500, detail=err_msg)
 
 @app.post("/storage/delete-key")
 async def delete_storage_key(request: Request, user: str = Depends(require_auth)):
     """Delete a key from a dict storage file."""
+    global channel_instance
+
     data = await request.json()
     file_path = data.get('file')
     key = data.get('key')
@@ -1321,12 +1331,14 @@ async def delete_storage_key(request: Request, user: str = Depends(require_auth)
 
     except Exception as e:
         err_msg = core.detail_error(e) if core.debug else str(e)
-        core.log("webui", f"Error deleting key: {e}")
+        channel_instance.log("webui", f"Error deleting key: {e}")
         raise HTTPException(status_code=500, detail=err_msg)
 
 @app.post("/storage/add-key")
 async def add_storage_key(request: Request, user: str = Depends(require_auth)):
     """Add a new key to a dict storage file."""
+    global channel_instance
+
     data = await request.json()
     file_path = data.get('file')
     key = data.get('key', '').strip()
@@ -1382,7 +1394,7 @@ async def add_storage_key(request: Request, user: str = Depends(require_auth)):
 
     except Exception as e:
         err_msg = core.detail_error(e) if core.debug else str(e)
-        core.log("webui", f"Error adding key: {e}")
+        channel_instance.log("webui", f"Error adding key: {e}")
         raise HTTPException(status_code=500, detail=err_msg)
 
 # =============================================================================
@@ -1392,7 +1404,7 @@ async def add_storage_key(request: Request, user: str = Depends(require_auth)):
 @app.post("/server/restart")
 async def restart_server(user: str = Depends(require_auth)):
     global channel_instance
-    core.log("webui", "Restart triggered")
+    channel_instance.log("webui", "Restart triggered")
     await channel_instance.manager.restart()
     return {"success": True}
 
@@ -1494,7 +1506,7 @@ class Webui(core.channel.Channel):
         global channel_instance
         channel_instance = self
 
-        core.log("webui", f"Starting WebUI on {self.url}")
+        self.log("webui", f"Starting WebUI on {self.url}")
 
         config = uvicorn.Config(app, host=self.host, port=self.port, log_level="error")
         self.server = uvicorn.Server(config)
@@ -1503,9 +1515,13 @@ class Webui(core.channel.Channel):
 
     async def on_shutdown(self):
         """Shutdown the server gracefully."""
-        core.log("webui", "Shutting down WebUI server...")
+        self.log("webui", "Shutting down WebUI server...")
         self.server.should_exit = True
         await asyncio.sleep(1) # Allow grace period
+
+    def on_log(self, category, message):
+        # implement websocket send here!
+        pass
 
     async def on_push(self, message: dict):
         """Triggered when a message is pushed (announcements, etc)"""

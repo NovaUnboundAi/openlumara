@@ -261,9 +261,9 @@ def _get_module_schema_cache():
             with open(cache_path, 'r') as f:
                 cache = json.load(f)
         except Exception as e:
-            core.log_error("error while loading module cache", e)
+            print(f"[CORE] error while loading module cache {core.detail_error(e)}")
     else:
-        core.log("core", f"creating module cache at {cache_path}")
+        print(f"[CORE] creating module cache at {cache_path}")
 
     package_map = {
         "channels": (channels, core.channel.Channel),
@@ -342,13 +342,13 @@ def _get_module_schema_cache():
                     }
 
             except Exception as e:
-                core.log_error(f"Failed to refresh cache for {section_key}", e)
+                print(f"[CORE] Failed to refresh cache for {section_key}: {core.detail_error(e)}")
 
         try:
             with open(cache_path, 'w') as f:
                 json.dump(cache, f, indent=2)
         except Exception as e:
-            core.log_error("failed to save module cache", e)
+            print(f"[CORE] failed to save module cache: {core.detail_error(e)}")
 
     return cache
 

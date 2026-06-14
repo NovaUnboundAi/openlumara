@@ -16,5 +16,8 @@ class CliLite(core.channel.Channel):
             response = await self.send({"role": "user", "content": user_input}, commands_authorized=True)
             print(response.get("content"), flush=True)
 
+    def on_log(self, category, message):
+        print(f"[{category.upper()}] {message}")
+
     async def on_push(self, message):
         print("\n"+message.get("content"), flush=True)

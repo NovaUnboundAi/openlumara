@@ -299,7 +299,7 @@ class Coder(core.module.Module):
         ).rstrip(os.path.sep)
 
         if not HAS_TREE_SITTER:
-            core.log("coder", f"Tree-sitter DISABLED. Reason: {disabled_reason}")
+            self.log("coder", f"Tree-sitter DISABLED. Reason: {disabled_reason}")
 
         # Core tools always available
         self.enabled_tools.extend([
@@ -404,7 +404,7 @@ class Coder(core.module.Module):
             tree = parser.parse(source_bytes)
             return tree, source_bytes
         except Exception as e:
-            core.log("coder", f"Tree-sitter parse failed: {e}")
+            self.log("coder", f"Tree-sitter parse failed: {e}")
             return None
 
     def _verify_syntax(self, file_path: str) -> Tuple[bool, Optional[str]]:
@@ -467,7 +467,7 @@ class Coder(core.module.Module):
 
             return True, None
         except Exception as e:
-            core.log("coder", f"Syntax verification skipped: {e}")
+            self.log("coder", f"Syntax verification skipped: {e}")
             return True, None
 
     def _verify_syntax_content(self, content: bytes, language: str) -> Tuple[bool, Optional[str]]:
@@ -530,7 +530,7 @@ class Coder(core.module.Module):
 
             return True, None
         except Exception as e:
-            core.log("coder", f"Syntax verification skipped: {e}")
+            self.log("coder", f"Syntax verification skipped: {e}")
             return True, None
 
     def _first_error_message(self, node, source_bytes: bytes, file_name: str = "file") -> Optional[str]:
@@ -697,7 +697,7 @@ class Coder(core.module.Module):
             self._cleanup_old_backups(basename)
             return backup_path
         except Exception as e:
-            core.log("coder", f"Backup failed: {e}")
+            self.log("coder", f"Backup failed: {e}")
             return None
 
     def _cleanup_old_backups(self, basename: str, max_count: int = None):
@@ -718,7 +718,7 @@ class Coder(core.module.Module):
                 except OSError:
                     pass
         except Exception as e:
-            core.log("coder", f"Backup cleanup failed: {e}")
+            self.log("coder", f"Backup cleanup failed: {e}")
 
     # ==================== Symbol Helpers ====================
 
@@ -1324,7 +1324,7 @@ class Coder(core.module.Module):
                     symbols.sort(key=lambda x: x['line'])
                     return self.result({"symbols": [{"name": s["name"], "type": s["type"]} for s in symbols]}, success=True)
             except Exception as e:
-                core.log("coder", f"Tree-sitter failed, falling back to regex: {e}")
+                self.log("coder", f"Tree-sitter failed, falling back to regex: {e}")
 
         # Fallback to regex
         lang_config = self.LANGUAGES.get(language, {})

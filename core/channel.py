@@ -7,6 +7,7 @@ import json
 import asyncio
 import json_repair
 import re
+import traceback
 
 class Channel:
     """Base class for channels"""
@@ -25,6 +26,7 @@ class Channel:
         self.commands = core.commands.Commands(self)
         self._last_cmd_was_temporary = False
         self.context = core.context.Context(self) # each channel has its own context window
+        self.console_buffer = [] # used to log system messages
 
         self.tc_manager = core.toolcalls.ToolcallManager(self)
 
@@ -159,17 +161,43 @@ class Channel:
                 break
             except Exception as e:
                 # Always log full traceback for easier debugging
-                import traceback
-                traceback.print_exc()
-                core.log(self.name, f"error in message consumer: {str(e)}")
+                self.log(self.name, traceback.format_exc())
+                self.log(self.name, f"error in message consumer: {str(e)}")
                 await asyncio.sleep(0.5)
+
+    def log(self, category: str, message: str):
+        """
+        used across the framework to log messages
+        basically a drop-in replacement for print()
+        will propagate the messages to the console log buffer of all channels
+        """
+        try:
+            self.manager.log(category, message)
+        except Exception as e:
+            print(f"[FATAL ERROR] failed to send log to channels ({e}): [{category.upper()}] {message}")
+
+    def log_error(msg: str, e: Exception):
+        """console log but with extra spice for errors"""
+        if core.debug:
+            self.log("error", f"{msg}: {detail_error(e)}")
+            self.log("error traceback", traceback.format_exception(e))
+        else:
+            self.log("error", f"{msg}: {e}")
+
+    def on_log(self, category: str, message: str):
+        """
+        overridable method that you can use to display logs
+        that were broadcasted by self.log()
+        for a simple cli channel, we just print()
+        """
+        pass
 
     # async def _poll_loop(self):
     #     """constantly polls the chat history to see if anything new arrived, and triggers on_message for every new message"""
     #     if not hasattr(self, "on_message"):
     #         return False
     #
-    #     core.log(self.name, "started message polling loop")
+    #     self.log(self.name, "started message polling loop")
     #
     #     while not getattr(self, "_shutting_down", False):
     #         try:
@@ -184,7 +212,7 @@ class Channel:
     #             await asyncio.sleep(0.1)
     #
     #         except Exception as e:
-    #             core.log(self.name, f"error in poll loop: {str(e)}")
+    #             self.log(self.name, f"error in poll loop: {str(e)}")
     #             # if we hit an error, back off for a second so we don't spam the logs
     #             await asyncio.sleep(1)
 
@@ -205,7 +233,7 @@ class Channel:
                 try:
                     cmd_response = await self.commands.process_input(message, authorized=commands_authorized)
                 except Exception as e:
-                    core.log_error("error while executing command", e)
+                    self.log_error("error while executing command", e)
                     return {"role": "assistant", "content": str(e)}
 
                 if cmd_response:
@@ -236,7 +264,7 @@ class Channel:
                     else:
                         module.on_user_message(message.get("content", ""))
                 except Exception as e:
-                    core.log("module error", f"{module_name}: in on_user_message(): {core.detail_error(e)}")
+                    self.log("module error", f"{module_name}: in on_user_message(): {core.detail_error(e)}")
 
         # then get the full context window
         context = await self.context.get(system_prompt=True, end_prompt=True)
@@ -289,7 +317,7 @@ class Channel:
                     else:
                         module.on_assistant_message(assistant_message.get("content", ""))
                 except Exception as e:
-                    core.log("module error", f"{module_name}: in on_assistant_message(): {core.detail_error(e)}")
+                    self.log("module error", f"{module_name}: in on_assistant_message(): {core.detail_error(e)}")
 
         if tool_calls:
             return None
@@ -315,7 +343,7 @@ class Channel:
                 try:
                     cmd_response = await self.commands.process_input(user_message, authorized=commands_authorized)
                 except Exception as e:
-                    core.log_error("error while executing command", e)
+                    self.log_error("error while executing command", e)
                     yield {"type": "content", "content": str(e)}
                     return
 
@@ -351,7 +379,7 @@ class Channel:
             try:
                 user_message_token_estimation = await self.context.chat.count_tokens()
             except Exception as e:
-                core.log_error("Error while trying to estimate token use", e)
+                self.log_error("Error while trying to estimate token use", e)
                 # abort
                 return
 
@@ -367,7 +395,7 @@ class Channel:
                     else:
                         module.on_user_message(message.get("content", ""))
                 except Exception as e:
-                    core.log("module error", f"{module_name}: in on_user_message(): {core.detail_error(e)}")
+                    self.log("module error", f"{module_name}: in on_user_message(): {core.detail_error(e)}")
 
         # get the new context window with the added message
         context = await self.context.get(system_prompt=True, end_prompt=True)
@@ -451,7 +479,7 @@ class Channel:
                             module.on_assistant_message(assistant_message.get("content", ""))
                     except Exception as e:
                         # Always log full traceback for easier debugging
-                        core.log("module error", f"{module_name}: in on_assistant_message(): {core.detail_error(e)}")
+                        self.log("module error", f"{module_name}: in on_assistant_message(): {core.detail_error(e)}")
 
     def _render_tool_token(self, name: str, args_str: str) -> str:
         delta = ""

@@ -14,6 +14,12 @@ except ImportError:
 nonagentic = ("characters", "time")
 
 reported_missing = []
+reported_broken = []
+
+# buffer the warnings and errors so that we can propagate them to manager.log()
+error_buffer = []
+def log(category, message):
+    error_buffer.append((category, message))
 
 # --------------------------------------
 # dependency auto-installer/uninstaller
@@ -36,14 +42,14 @@ def _extract_deps_from_file(file_path):
                                         if isinstance(elt, ast.Constant)
                                     ]
     except Exception as e:
-        core.log("warning", f"could not parse dependencies from {file_path}: {e}")
+        log("core", f"could not parse dependencies from {file_path}: {e}")
     return []
 
-def _install_deps(module_name, packages):
+def _install_deps(module_name, packages, manager):
     """install pip packages"""
     if not packages:
         return
-    core.log(module_name, f"installing dependencies: {', '.join(packages)}")
+    log(module_name, f"installing dependencies: {', '.join(packages)}")
 
     try:
         subprocess.check_call(
@@ -52,13 +58,13 @@ def _install_deps(module_name, packages):
             stderr=subprocess.DEVNULL
         )
     except subprocess.CalledProcessError as e:
-        core.log_error("dependency install failed", e)
+        log(module_name, f"dependency install failed: {core.detail_error(e)}")
 
 def _uninstall_deps(module_name, packages):
     """uninstall pip packages"""
     if not packages:
         return
-    core.log(module_name, f"uninstalling dependencies: {', '.join(packages)}")
+    log(module_name, f"uninstalling dependencies: {', '.join(packages)}")
 
     try:
         subprocess.check_call(
@@ -67,7 +73,7 @@ def _uninstall_deps(module_name, packages):
             stderr=subprocess.DEVNULL
         )
     except subprocess.CalledProcessError as e:
-        core.log_error("dependency uninstall failed", e)
+        log(module_name, f"dependency uninstall failed: {core.detail_error(e)}")
 
 def _get_module_file_path(package, module_name):
     """get the file path for a module without importing it"""
@@ -195,7 +201,7 @@ def load(package, base_class = None, filter: list = None, reload: bool = False, 
                 missing = _check_missing_deps(deps)
                 if missing:
                     if modname not in reported_missing and not loading_config:
-                        core.log(modname, "Warning: loading skipped because of missing dependencies")
+                        log(modname, "Warning: loading skipped because of missing dependencies")
                         reported_missing.append(modname)
 
                     continue
@@ -236,7 +242,11 @@ def load(package, base_class = None, filter: list = None, reload: bool = False, 
         except Exception as e:
             # Catching Exception prevents the program from crashing on faulty modules.
             # We simply log the warning and continue to the next module.
-            core.log_error(f"failed to load module {modname}", e)
+            if modname in reported_broken:
+                continue
+
+            log("core", f"failed to load module {modname}: {core.detail_error(e)}")
+            reported_broken.append(modname)
             continue
 
     return tuple(discovered)

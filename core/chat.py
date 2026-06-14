@@ -49,7 +49,7 @@ class Chat:
                 if target_index < len(self.data):
                     self.current = target_index
             except Exception as e:
-                core.log_error("couldn't autoresume chat", e)
+                self.channel.log_error("couldn't autoresume chat", e)
 
     def _is_command_only(self, messages):
         """Check if a messages array contains only user commands and command responses"""
@@ -322,7 +322,7 @@ class Chat:
                     if injection:
                         injections.append(injection)
                 except Exception as e:
-                    core.log("module error", f"{module.name}: in on_message_inject(): {core.detail_error(e)}")
+                    self.channel.log("module error", f"{module.name}: in on_message_inject(): {core.detail_error(e)}")
 
         if injections:
             new_message["injection"] = "\n\n".join(injections)
@@ -402,7 +402,7 @@ class Chat:
                 # If tiktoken fails to load (e.g. no internet and no cache), we set to None
                 # _count_text_tokens then uses a character-based fallback
                 self.token_encoding = None
-                core.log_error("[TIKTOKEN] Falling back on character-based token counting.", e)
+                self.channel.log_error("[TIKTOKEN] Falling back on character-based token counting.", e)
                 pass
 
         for message in _messages:

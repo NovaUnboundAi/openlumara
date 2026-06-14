@@ -82,7 +82,7 @@ class SandboxedShell(core.module.Module):
             self.runtime = "docker"
 
         if not self.runtime:
-            core.log("sandbox_shell", "Neither docker nor podman are available!")
+            self.log("sandbox_shell", "Neither docker nor podman are available!")
             return
 
         self.host_workspace = os.path.expanduser(self.config.get("sandbox_path", default="~/sandbox"))
@@ -91,9 +91,9 @@ class SandboxedShell(core.module.Module):
         # Check for gVisor (runsc) availability
         if shutil.which("runsc"):
             self.use_gvisor = True
-            core.log("sandbox_shell", "gVisor (runsc) detected. Sandbox will use gVisor for enhanced security.")
+            self.log("sandbox_shell", "gVisor (runsc) detected. Sandbox will use gVisor for enhanced security.")
         else:
-            core.log("sandbox_shell", "Warning: gVisor (runsc) not found. Sandbox is running with standard isolation. To install gVisor for better security, see: https://gvisor.dev/docs/user_guide/install/")
+            self.log("sandbox_shell", "Warning: gVisor (runsc) not found. Sandbox is running with standard isolation. To install gVisor for better security, see: https://gvisor.dev/docs/user_guide/install/")
 
     async def _kill_process_tree(self, process):
         """Kill a process and all its children (Unix only)."""
@@ -221,20 +221,20 @@ class SandboxedShell(core.module.Module):
 
                     # skip loop iteration if we couldn't get a valid memory value
                     if not current_mem_bytes:
-                        core.log(self.name, "Warning: Could not get RAM usage. Memory overflow attacks could occur.")
+                        self.log(self.name, "Warning: Could not get RAM usage. Memory overflow attacks could occur.")
                         continue
 
                     if current_mem_bytes and current_mem_bytes > limit_bytes:
-                        core.log("sandbox_shell", f"Memory limit exceeded ({current_mem_bytes} > {limit_bytes} bytes). Killing container.")
+                        self.log("sandbox_shell", f"Memory limit exceeded ({current_mem_bytes} > {limit_bytes} bytes). Killing container.")
                         await self._kill_container()
                         self.container_name = None
 
-                        core.log("sandbox_shell", "Restarting container due to memory limit...")
+                        self.log("sandbox_shell", "Restarting container due to memory limit...")
                         await self.on_ready()
                 except Exception as e:
-                    core.log("sandbox_shell", f"Error checking memory stats: {e}")
+                    self.log("sandbox_shell", f"Error checking memory stats: {e}")
             except Exception as e:
-                core.log("sandbox_shell", f"Background loop error: {e}")
+                self.log("sandbox_shell", f"Background loop error: {e}")
                 await asyncio.sleep(5)  # Backoff to prevent tight loop on errors
 
     async def _kill_container(self):
@@ -317,21 +317,21 @@ class SandboxedShell(core.module.Module):
 
         try:
             stdout, stderr, exit_code, _ = await self._run_async_cmd(cmd, timeout=30.0, limit=1024 * 1024)
-            core.log("sandbox_shell", f"Persistent container {self.container_name} started (UID: {uid}).")
+            self.log("sandbox_shell", f"Persistent container {self.container_name} started (UID: {uid}).")
         except Exception as e:
-            core.log("sandbox_shell", f"Error during container startup: {e}")
+            self.log("sandbox_shell", f"Error during container startup: {e}")
             self.container_name = None
 
     async def on_shutdown(self):
         """Cleans up the container when the application shuts down."""
         if self.container_name and self.runtime:
-            core.log("sandbox_shell", f"Shutting down persistent container {self.container_name}...")
+            self.log("sandbox_shell", f"Shutting down persistent container {self.container_name}...")
             try:
                 await self._kill_container()
                 self.container_name = None
-                core.log("sandbox_shell", "Container removed.")
+                self.log("sandbox_shell", "Container removed.")
             except Exception as e:
-                core.log("sandbox_shell", f"Error during container shutdown: {e}")
+                self.log("sandbox_shell", f"Error during container shutdown: {e}")
             finally:
                 self.container_name = None
 

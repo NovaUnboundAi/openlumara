@@ -618,6 +618,6 @@ class Commands:
                                     try:
                                         return await bound_method(cmd[1:])
                                     except Exception as e:
-                                        core.log_error("error while executing command", e)
+                                        self.channel.log_error("error while executing command", e)
 
                 return "no such command! check /help"

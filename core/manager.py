@@ -8,6 +8,8 @@ import json_repair
 import inspect
 import re
 
+global_instance = None
+
 class Manager:
     """the central class that manages everything"""
 
@@ -31,7 +33,12 @@ class Manager:
 
     def _remove_async_task(self, task):
         self._async_tasks.discard(task)
-        core.log("task", f"background task completed: {task.get_name()}")
+        self.log("task", f"background task completed: {task.get_name()}")
+
+    def log(self, category, message):
+        """propagate the output to every channel"""
+        for name, channel in self.channels.items():
+            channel.on_log(category, message)
 
     async def run(self):
         """main loop"""
@@ -45,7 +52,7 @@ class Manager:
             self.coding_mode = True
 
         if not core.quiet:
-            core.log("core", "Starting OpenLumara")
+            self.log("core", "Starting OpenLumara")
 
         self.savedata = core.storage.StorageDict("save", "msgpack")
 
@@ -74,7 +81,7 @@ class Manager:
         import modules
         import user_modules
 
-        core.log("core", "Loading channels")
+        self.log("core", "Loading channels")
         # install dependencies
         newly_installed_channels = []
         if not self.args.disable_auto_installer:
@@ -88,7 +95,11 @@ class Manager:
                 # reload config
                 core.config.load()
 
-        for channel in core.modules.load(channels, core.channel.Channel, filter=enabled_channels, reload=True):
+        channels_to_load = list(core.modules.load(channels, core.channel.Channel, filter=enabled_channels, reload=True))
+        # always load the log channel first
+        channels_to_load.sort(key=lambda c: 0 if core.modules.get_name(c) == 'logger' else 1)
+
+        for channel in channels_to_load:
             # add an instance of the channel's class to self.channels
             channel_name = core.modules.get_name(channel)
             try:
@@ -99,14 +110,14 @@ class Manager:
                     await self.channels[channel_name].on_install()
 
             except Exception as e:
-                core.log(channel_name, f"failed to load channel: {core.detail_error(e)}")
+                self.log(channel_name, f"failed to load channel: {core.detail_error(e)}")
 
         # start channels (execute their .run() method)
         for channel_name, channel in self.channels.items():
             self._async_tasks.add(asyncio.create_task(channel.run()))
             # also start the message polling loop per channel
             self._async_tasks.add(asyncio.create_task(channel._start_push_queue()))
-            core.log("core", f"Started channel {channel_name}")
+            self.log("core", f"Started channel {channel_name}")
 
         if not self.channel:
             # attempt to restore last used channel from save data
@@ -115,7 +126,7 @@ class Manager:
                 self.channel = self.channels[last_channel]
 
         if enabled_modules:
-            core.log("core", "Loading core modules")
+            self.log("core", "Loading core modules")
 
             # install dependencies
             newly_installed_modules = []
@@ -143,10 +154,10 @@ class Manager:
                     self.modules[loaded_module.name] = loaded_module
                     loaded_module_names.append(loaded_module.name)
                 except Exception as e:
-                    core.log_error(f"could not load module {module.__name__}", e)
+                    self.log_error(f"could not load module {module.__name__}", e)
 
         if enabled_user_modules:
-            core.log("core", "Loading user modules")
+            self.log("core", "Loading user modules")
 
             # install dependencies
             newly_installed_user_modules = []
@@ -174,12 +185,12 @@ class Manager:
                     self.modules[loaded_module.name] = loaded_module
                     loaded_module_names.append(loaded_module.name)
                 except Exception as e:
-                    core.log_error(f"could not load user module {module.__name__}", e)
+                    self.log_error(f"could not load user module {module.__name__}", e)
 
         if enabled_modules or enabled_user_modules:
-            core.log("core", f"Modules loaded: {', '.join(loaded_module_names)}")
+            self.log("core", f"Modules loaded: {', '.join(loaded_module_names)}")
         else:
-            core.log("core", "All modules are disabled")
+            self.log("core", "All modules are disabled")
 
         if not self.args.disable_auto_installer:
             # uninstall dependencies for disabled modules (only if deps are still installed)
@@ -212,16 +223,25 @@ class Manager:
             tool_name = tool.get("function").get("name")
             self.tool_names.append(tool_name)
 
+        # display any error messages that were emitted
+        # by the framework before the manager was initialized
+        if core.modules.error_buffer:
+            for category, message in core.modules.error_buffer:
+                self.log(category, message)
+
         # Attempt API connection but don't fail if it doesn't work
         await self._initialize_api_connection()
 
         # run everything
-        core.log("core", "Startup complete")
+        self.log("core", "Startup complete")
 
         if "webui" in self.channels:
             webui_url = self.channels["webui"].url
             print(flush=True)
             print(f"Please open the WebUI at {webui_url}", flush=True)
+
+        # make our instance accessible even without a reference
+        global_instance = self
 
         try:
             await asyncio.gather(*self._async_tasks, return_exceptions=should_swallow_exceptions)
@@ -241,7 +261,7 @@ class Manager:
         return None
 
     async def restart(self):
-        core.log("core", "Restarting server..")
+        self.log("core", "Restarting server..")
         self._restart_requested = True
         await self.shutdown()
 
@@ -253,7 +273,7 @@ class Manager:
         # stop the automatic shutdown at the end of run() from running
         self._prevent_double_shutdown = True
 
-        core.log("core", "Shutting down..")
+        self.log("core", "Shutting down..")
 
         # shutdown modules
         for module_name, module in self.modules.items():
@@ -264,12 +284,12 @@ class Manager:
                     else:
                         module.on_shutdown()
                 except Exception as e:
-                    core.log_error(f"Error shutting down {module_name}", e)
+                    self.log_error(f"Error shutting down {module_name}", e)
 
         # shutdown channels
         for channel_name, channel in self.channels.items():
             if hasattr(channel, "on_shutdown"):
-                core.log("core", f"Shutting down channel {channel_name}")
+                self.log("core", f"Shutting down channel {channel_name}")
 
                 try:
                     await channel._shutdown()
@@ -279,7 +299,10 @@ class Manager:
                     else:
                         channel.on_shutdown()
                 except Exception as e:
-                    core.log_error(f"Error shutting down {channel_name}", e)
+                    self.log_error(f"Error shutting down {channel_name}", e)
+
+        # remove the global instance
+        global_instance = None
 
         # Cancel all running tasks so gather() returns
         for task in list(self._async_tasks):
@@ -289,12 +312,12 @@ class Manager:
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                core.log("warning", f"Error waiting for task {task.get_name()} to finish: {e}")
+                self.log("warning", f"Error waiting for task {task.get_name()} to finish: {e}")
 
         # wait so that everything's properly gone
         await asyncio.sleep(1)
 
-        core.log("core", "Shutdown complete")
+        self.log("core", "Shutdown complete")
 
     async def toggle_module(self, module_name: str, autorestart=True):
         modules = core.config.config["modules"]
@@ -322,22 +345,22 @@ class Manager:
 
     async def _initialize_api_connection(self):
         """Initialize API connection with user-friendly error handling."""
-        core.log("API", "Connecting to AI..")
+        self.log("API", "Connecting to AI..")
 
         connected = await self.API.connect()
         if not connected:
             error = self.API.get_last_error() or "Unknown error"
-            core.log("API", f"Failed to connect: {error}")
-            core.log("API", "OpenLumara will continue in disconnected mode.")
-            core.log("API", "Use the /reconnect command to retry after fixing your configuration.")
+            self.log("API", f"Failed to connect: {error}")
+            self.log("API", "OpenLumara will continue in disconnected mode.")
+            self.log("API", "Use the /reconnect command to retry after fixing your configuration.")
 
     async def reconnect_api(self):
         """Manually trigger API reconnection. Returns status dict."""
-        core.log("API", "Attempting to reconnect...")
+        self.log("API", "Attempting to reconnect...")
 
         connected = await self.API.reconnect()
         if connected:
-            core.log("API", "Reconnected successfully")
+            self.log("API", "Reconnected successfully")
             return {
                 "success": True,
                 "message": "Successfully connected to API"
@@ -399,7 +422,7 @@ class Manager:
             try:
                 module_sysprompt = await module.on_system_prompt()
             except Exception as e:
-                core.log("module error", f"{module_name}: in on_system_prompt(): {core.detail_error(e)}")
+                self.log("module error", f"{module_name}: in on_system_prompt(): {core.detail_error(e)}")
                 self.broken_modules.append(module_name)
                 continue
 
@@ -454,7 +477,7 @@ class Manager:
             try:
                 module_sysprompt = await module.on_end_prompt()
             except Exception as e:
-                core.log("module error", f"{module_name}: in on_end_prompt(): {core.detail_error(e)}")
+                self.log("module error", f"{module_name}: in on_end_prompt(): {core.detail_error(e)}")
                 self.broken_modules.append(module_name)
                 continue
 

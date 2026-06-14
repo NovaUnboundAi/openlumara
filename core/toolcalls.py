@@ -41,7 +41,7 @@ class ToolcallManager:
 
             return f"🔧 {func_name}({', '.join(arg_strs)})"
         except Exception as e:
-            core.log("toolcall", f"Error formatting tool call: {e}")
+            self.channel.log("toolcall", f"Error formatting tool call: {e}")
             return "🔧 Calling tool..."
 
     def _repair_tool_calls(self, tool_calls):
@@ -57,14 +57,14 @@ class ToolcallManager:
                 try:
                     modified_args = json_repair.loads(raw_args)
                 except Exception as e:
-                    core.log("error", f"JSON repair failed: {e}")
+                    self.channel.log("error", f"JSON repair failed: {e}")
                     modified_args = {}
             else:
-                core.log("error", f"unexpected arguments type: {type(raw_args)}")
+                self.channel.log("error", f"unexpected arguments type: {type(raw_args)}")
                 modified_args = {}
 
             if not isinstance(modified_args, dict):
-                core.log("error", f"Arguments not a dict: {modified_args}")
+                self.channel.log("error", f"Arguments not a dict: {modified_args}")
                 modified_args = {}
 
             tool_call['function']['arguments'] = json.dumps(modified_args)
@@ -172,7 +172,7 @@ class ToolcallManager:
                 # build a fancy toolcall display string
                 tool_call_str = self.display_call(tool_call_dict)
 
-                core.log("toolcall", tool_call_str)
+                self.channel.log("toolcall", tool_call_str)
 
                 func_response = None
                 try:
@@ -186,11 +186,11 @@ class ToolcallManager:
                 except asyncio.TimeoutError as e:
                     err_msg = core.detail_error(e) if core.debug else str(e)
                     func_response = module_instance.result(f"Tool timed out after {timeout_val}s", success=False)
-                    core.log("toolcall", func_response.get("content"))
+                    self.channel.log("toolcall", func_response.get("content"))
                 except Exception as e:
                     err_msg = core.detail_error(e) if core.debug else str(e)
                     func_response = module_instance.result(f"Error while executing tool: {err_msg}", success=False)
-                    core.log("toolcall", func_response.get("content"))
+                    self.channel.log("toolcall", func_response.get("content"))
                 finally:
                     func_response_str = None
 
@@ -217,7 +217,7 @@ class ToolcallManager:
                     # if push:
                     #     await self.channel.push(tool_response)
             else:
-                core.log(
+                self.channel.log(
                     "toolcall",
                     f"tried to call tool {tool_name} but couldn't find it"
                 )
@@ -294,7 +294,7 @@ class ToolcallManager:
                         await self.channel.push(final_msg)
 
         except Exception as e:
-            core.log_error(f"Error while handling tool calls", e)
+            self.channel.log_error(f"Error while handling tool calls", e)
             await self.channel.announce(
                 f"Error while handling tool calls: {e}",
                 "error"
