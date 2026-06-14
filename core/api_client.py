@@ -268,6 +268,8 @@ class APIClient():
             else:
                 # It's a different kind of 400 error (e.g., invalid parameters)
                 core.log_error("Bad request (400)", e)
+                if core.debug:
+                    core.log("request debug", json.dumps(req, indent=2))
                 return {"error": "api_error", **self._get_user_friendly_message("api_error", e)}
 
         except asyncio.CancelledError:
@@ -303,6 +305,8 @@ class APIClient():
         except Exception as e:
             core.log_error("error while sending request to AI", e)
             self.connected = False
+            if core.debug:
+                core.log("request debug", json.dumps(req, indent=2))
             return {"error": "unknown", **self._get_user_friendly_message("unknown", e)}
 
         return response
