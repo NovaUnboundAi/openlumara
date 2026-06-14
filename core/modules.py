@@ -94,25 +94,28 @@ def install_module_deps(package, module_name):
     """install dependencies for a module if missing"""
     file_path = _get_module_file_path(package, module_name)
     if not file_path:
-        return
+        return False
 
     deps = _extract_deps_from_file(file_path)
     if not deps:
-        return
+        return False
 
     missing = _check_missing_deps(deps)
     if missing:
         _install_deps(module_name, missing)
+        return True
+
+    return False
 
 def uninstall_module_deps(package, module_name):
     """uninstall dependencies for a module (only if still installed)"""
     file_path = _get_module_file_path(package, module_name)
     if not file_path:
-        return
+        return False
 
     deps = _extract_deps_from_file(file_path)
     if not deps:
-        return
+        return False
 
     # Get list of missing dependencies
     missing = _check_missing_deps(deps)
@@ -121,6 +124,7 @@ def uninstall_module_deps(package, module_name):
 
     if installed:
         _uninstall_deps(module_name, installed)
+        return True
 
 # --------------------------
 # module loading

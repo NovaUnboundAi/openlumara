@@ -77,8 +77,15 @@ class Manager:
         core.log("core", "Loading channels")
         # install dependencies
         if not self.args.disable_auto_installer:
+            system_changed = False
             for chan_name in enabled_channels:
-                core.modules.install_module_deps(channels, chan_name)
+                installed = core.modules.install_module_deps(channels, chan_name)
+                if installed and not system_changed:
+                    system_changed = True
+
+            if system_changed:
+                # reload config
+                core.config.load()
 
         for channel in core.modules.load(channels, core.channel.Channel, filter=enabled_channels, reload=True):
             # add an instance of the channel's class to self.channels
@@ -106,8 +113,15 @@ class Manager:
 
             # install dependencies
             if not self.args.disable_auto_installer:
+                system_changed = False
                 for mod_name in enabled_modules:
-                    core.modules.install_module_deps(modules, mod_name)
+                    installed = core.modules.install_module_deps(modules, mod_name)
+                    if installed and not system_changed:
+                        system_changed = True
+
+                if system_changed:
+                    # reload config
+                    core.config.load()
 
             # import/load only the enabled modules
             for module in core.modules.load(modules, core.module.Module, filter=enabled_modules, reload=True):
@@ -126,7 +140,14 @@ class Manager:
             # install dependencies
             if not self.args.disable_auto_installer:
                 for mod_name in enabled_user_modules:
-                    core.modules.install_module_deps(user_modules, mod_name)
+                    installed = core.modules.install_module_deps(user_modules, mod_name)
+
+                    if installed and not system_changed:
+                        system_changed = True
+
+                if system_changed:
+                    # reload config
+                    core.config.load()
 
             for module in core.modules.load(user_modules, core.module.Module, filter=enabled_user_modules, reload=True):
                 try:
@@ -149,14 +170,25 @@ class Manager:
             disabled_modules = core.config.get("modules", "disabled", [])
             disabled_user_modules = core.config.get("user_modules", "disabled", [])
 
+            system_changed = False
             for chan_name in disabled_channels:
-                core.modules.uninstall_module_deps(channels, chan_name)
+                uninstalled = core.modules.uninstall_module_deps(channels, chan_name)
+                if uninstalled and not system_changed:
+                    system_changed = True
 
             for mod_name in disabled_modules:
-                core.modules.uninstall_module_deps(modules, mod_name)
+                uninstalled = core.modules.uninstall_module_deps(modules, mod_name)
+                if uninstalled and not system_changed:
+                    system_changed = True
 
             for mod_name in disabled_user_modules:
-                core.modules.uninstall_module_deps(user_modules, mod_name)
+                uninstalled = core.modules.uninstall_module_deps(user_modules, mod_name)
+                if uninstalled and not system_changed:
+                    system_changed = True
+
+            if system_changed:
+                # reload config
+                core.config.load()
 
         # create an array of all enabled tools so that we can reference it in the future
         for tool in self.tools:
