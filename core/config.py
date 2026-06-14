@@ -73,9 +73,7 @@ DEFAULT_MODULES = (
     "calendar",
     "calculator",
     "token_threshold",
-    "time",
-    "web_search",
-    "web_reader"
+    "time"
 )
 
 DEFAULT_CHANNELS = ["cli", "webui"]
