@@ -35,10 +35,15 @@ class Manager:
         self._async_tasks.discard(task)
         self.log("task", f"background task completed: {task.get_name()}")
 
-    def log(self, category, message):
+    def log(self, category: str, message: str):
         """propagate the output to every channel"""
         for name, channel in self.channels.items():
             channel.on_log(category, message)
+
+    def log_error(self, message: str, e: Exception):
+        """propagate the output to every channel"""
+        for name, channel in self.channels.items():
+            channel.log_error(message, e)
 
     async def run(self):
         """main loop"""
