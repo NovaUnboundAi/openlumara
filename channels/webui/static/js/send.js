@@ -275,8 +275,8 @@ async function send(providedContent = null) {
     if (!message && !isRegenerate) return;
 
     // Prepare local UI to receive the stream (placeholder)
-    placeholderUserWrapper = createPlaceholderUserMessage(message);
-    chat.insertBefore(placeholderUserWrapper, typing);
+    window.placeholderUserWrapper = createPlaceholderUserMessage(message);
+    chat.insertBefore(window.placeholderUserWrapper, typing);
     scrollToBottom();
 
     // Build payload
@@ -319,7 +319,9 @@ async function send(providedContent = null) {
         isStreaming = false;
         isDataStreaming = false;
         setInputState(false, false, false);
-        removePlaceholder();
+        if (window.placeholderUserWrapper && window.placeholderUserWrapper.parentNode) {
+            window.placeholderUserWrapper.remove();
+        }
     }
 }
 

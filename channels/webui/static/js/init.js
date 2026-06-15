@@ -119,6 +119,14 @@ function handleWebSocketMessage(data) {
         }
         return;
     }
+    if (data.type === 'user_message_added') {
+        handleNewMessage(data.message);
+        return;
+    }
+    if (data.type === 'message_added') {
+        handleNewMessage(data.message);
+        return;
+    }
     if (data.type === 'token') {
         // Real-time token broadcasting
         if (!window._currentAiMsgDiv) {
@@ -359,10 +367,10 @@ function handleNewMessage(msg) {
         return;
     }
 
-    // If this is a user message and we have a placeholder, remove it
-    if (msg.role === 'user' && typeof placeholderUserWrapper !== 'undefined' && placeholderUserWrapper.parentNode) {
+    // If this is the user message and we have a placeholder, remove it
+    if (msg.role === 'user' && window.placeholderUserWrapper && window.placeholderUserWrapper.parentNode) {
         console.log('[DEBUG] Removing user message placeholder');
-        placeholderUserWrapper.remove();
+        window.placeholderUserWrapper.remove();
     }
 
     renderSingleMessage(msg, msg.index, true);
