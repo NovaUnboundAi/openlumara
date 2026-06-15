@@ -28,6 +28,7 @@ default_config = {
         "max_context": 8192,
         "max_output_tokens": 8192,
         "max_messages": 200,
+        "use_developer_role": False,
         "custom_fields": {}
     },
     "model": {

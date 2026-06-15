@@ -117,7 +117,7 @@ class APIClient():
         self.connected = True
         self._connection_error = None
         self._connection_attempts = 0
-        self.supports_developer_role = await self._check_developer_role_support(self._AI)
+        self.supports_developer_role = core.config.get("api", "use_developer_role", default=False)
 
         self.manager.log("API", "Successfully connected to AI")
         return True
@@ -155,26 +155,6 @@ class APIClient():
 
     def get_model(self):
         return self._model
-
-    async def _check_developer_role_support(self, client):
-        try:
-            # We send a minimal request using the 'developer' role.
-            # We use a very short prompt to minimize token usage/cost.
-            response = await self._AI.chat.completions.create(
-                # send dev -> user -> dev to check for multi-dev-message support,
-                # which is what the dev role is useful for in our case
-                model=self._model or "default",
-                messages=[
-                    {"role": "developer", "content": "test"},
-                    {"role": "user", "content": "test"},
-                    {"role": "developer", "content": "test2"}
-                ],
-                max_tokens=1
-            )
-        except Exception as e:
-            return False
-
-        return True
 
     def set_model(self, name: str):
         self._model = name
