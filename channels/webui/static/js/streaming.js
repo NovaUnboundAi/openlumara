@@ -301,6 +301,7 @@ async function finalizeStreamingUI(aiWrapper, aiMsgDiv) {
     resetStreamState();
 
     // prevents duplicate sounds when typewriter is enabled
+    const typewriterEnabled = localStorage.getItem("typewriterEnabled") === 'true';
     if (!typewriterEnabled) {
         TypewriterAudioManager.play('completion');
     }

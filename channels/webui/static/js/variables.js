@@ -22,7 +22,6 @@ let promptProcessingReceived = false;  // Track if we received prompt_progress
 let streamFrozen = false;
 let currentController = null;
 let currentStreamId = null;
-let editingIndex = null;
 
 // Search state
 let searchQuery = '';

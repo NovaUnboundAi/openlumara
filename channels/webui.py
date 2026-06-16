@@ -892,6 +892,7 @@ async def edit_message(request: Request, user: str = Depends(require_auth)):
         if messages[index].get('role') in ('user', 'assistant'):
             messages[index]['content'] = new_content
             await channel_instance.context.chat.set(messages)
+            await manager.broadcast({"type": "messages_updated", "messages": await channel_instance.context.chat.get()})
             return {'success': True, 'total': len(messages)}
         return {'success': False, 'error': 'Cannot edit this message type'}
     return {'success': False, 'error': f'Index {index} out of range'}
@@ -904,8 +905,9 @@ async def delete_message(request: Request, user: str = Depends(require_auth)):
     messages = await channel_instance.context.chat.get()
     if 0 <= int(index) < len(messages):
         if messages[index].get('role') in ('user', 'assistant', 'command', 'command_response') or messages[index].get('role', '').startswith('announce_'):
-            await channel_instance.context.chat.set(messages[:index])
+            await channel_instance.context.chat.delete_from(index)
             remaining = len(await channel_instance.context.chat.get())
+            await manager.broadcast({"type": "messages_updated", "messages": await channel_instance.context.chat.get()})
             return {'success': True, 'remaining': remaining}
     return {'success': False, 'error': f'Index {index} out of range'}
 
