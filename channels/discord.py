@@ -51,7 +51,7 @@ class Client(discord.Client):
                                 state.pending_content = ""
                                 try:
                                     await state.message_obj.edit(content=state.full_content)
-                                    self.log(self.ai_channel.name, state.full_content)
+                                    self.ai_channel.log(self.ai_channel.name, state.full_content)
                                 except:
                                     pass
                             
@@ -77,7 +77,7 @@ class Client(discord.Client):
                     state.pending_content = ""
                 
                 if state.full_content:
-                    self.log(self.ai_channel.name, state.full_content)
+                    self.ai_channel.log(self.ai_channel.name, state.full_content)
                     try:
                         await state.message_obj.edit(content=state.full_content)
                     except Exception:
@@ -87,7 +87,7 @@ class Client(discord.Client):
                             pass
 
     async def on_ready(self):
-        self.log("discord", "logged in.")
+        self.ai_channel.log("discord", "logged in.")
         startup_message = self.ai_channel.config.get("startup_message")
         if startup_message:
             await self.ai_channel.push(startup_message)
@@ -116,7 +116,7 @@ class Client(discord.Client):
                 mentioned = True
 
             if mentioned:
-                self.log("discord", f"<{message.author.name}> {message.clean_content}")
+                self.ai_channel.log("discord", f"<{message.author.name}> {message.clean_content}")
 
                 async with message.channel.typing():
                     try:
@@ -188,7 +188,7 @@ class Client(discord.Client):
 
                                 for chunk in chunks:
                                     await message.channel.send(chunk, mention_author=self.ai_channel.config.get("use_replies"))
-                                    self.log("discord", f"<{message.guild.me.name}> {chunk}")
+                                    self.ai_channel.log("discord", f"<{message.guild.me.name}> {chunk}")
                                     await asyncio.sleep(0.5)
                     except Exception as e:
                         err_msg = core.detail_error(e) if core.debug else str(e)
