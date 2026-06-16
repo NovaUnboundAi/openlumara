@@ -300,8 +300,6 @@ async function finalizeStreamingUI(aiWrapper, aiMsgDiv) {
     // Reset stream state AFTER UI is finalized
     resetStreamState();
 
-    TypewriterAudioManager.play('completion');
-
     setInputState(false, false, false);
     isStreaming = false;
     streamFrozen = false;
