@@ -121,24 +121,51 @@ class Characters(core.module.Module):
             return tool_text or None
 
         char_name = await self.channel.context.chat.get_data("character")
-        char = self.characters.get(char_name, {}).get("data", {})
-        if not char:
-            return None
+        char = self.characters.get(char_name)
 
-        char_profile = self._replace_tags(char_name, char.get("description", ""))
+        # the presence of the "data" key means it's
+        # either character card V2 or V3 or higher
+        char_data = char.get("data")
+
+        char_profile = None
+        char_scenario = None
+        first_msg = None
+        if char_data:
+            char_profile = char_data.get("description")
+            char_scenario = char_data.get('scenario')
+            first_msg = char_data.get("first_mes")
+        else:
+            # check if this is the legacy openlumara format or character spec V1,
+            # otherwise don't use the character
+
+            # if there is an "identity" key, this is openlumara's legacy format
+            if "identity" in char.keys():
+                char_profile = char.get("identity")
+
+            # otherwise, if there is a "description" field, this is char spec V1
+            elif "description" in char.keys():
+                char_profile = char.get("description")
+                char_scenario = char.get("scenario")
+                first_msg = char.get("first_mes")
+
+        if not char_profile:
+            return "Failed to extract character profile from character JSON"
+
+        # replace tags such as {{user}} and {{char}}
+        char_profile = self._replace_tags(char_name, char_profile)
+        if char_scenario:
+            char_scenario = self._replace_tags(char_name, char_scenario)
+
         # all of this is stored as json strings, so newlines need to be restored
         char_profile = char_profile.replace("\\n", "\n")
+        if char_scenario:
+            char_scenario = char_scenario.replace("\\n", "\n")
 
         character_text_build = []
+        character_text_build.append(f"## You: {char_name}\n{char_profile}")
 
-        character_text_build.append("## You")
-        character_text_build.append(f"### Name\n{char_name}")
-        character_text_build.append(f"### Identity\n{char_profile}")
-
-        scenario = char.get('scenario')
-        if scenario:
-            scenario = self._replace_tags(char_name, scenario)
-            character_text_build.append(f"### Scenario\n{scenario}")
+        if char_data and char_scenario:
+            character_text_build.append(f"## Scenario\n{char_scenario}")
 
         user_profile = self.user_profile.get("profile")
         if user_profile:
@@ -149,7 +176,6 @@ class Characters(core.module.Module):
         char_text = "\n\n".join(character_text_build)
 
         # if this is an empty chat, insert the first message into history by sending it as a push
-        first_msg = char.get("first_mes")
         if first_msg:
             if len(await self.channel.context.chat.get()) == 0:
                 first_msg = self._replace_tags(char_name, first_msg)
@@ -187,7 +213,7 @@ class Characters(core.module.Module):
                 return self.result("character data not found and auto conversion of legacy character format failed", False)
 
             char_data = {
-                "name": char.get("name"),
+                "name": name,
                 "description": char.get("identity")
             }
 
