@@ -70,8 +70,7 @@ class SandboxedShell(core.module.Module):
         }
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    async def on_ready(self):
         self.runtime = None
         self.container_name = None
         self.use_gvisor = False

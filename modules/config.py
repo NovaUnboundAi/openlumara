@@ -19,9 +19,7 @@ class Config(core.module.Module):
         }
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    async def on_ready(self):
         if not self.config.get("allow_ai_to_modify_config"):
             self.disabled_tools.append("set")
 

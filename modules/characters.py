@@ -32,8 +32,7 @@ class Characters(core.module.Module):
 
     header = "Character"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    async def on_ready(self):
         self.characters = core.storage.StorageDict("characters", type="json")
         self.user_profile = core.storage.StorageDict("character_user", "json")
         self.active = False

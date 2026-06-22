@@ -14,8 +14,7 @@ class Models(core.module.Module):
         }
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    async def on_ready(self):
         self.models = None
 
         if self.config.get("insert_available_models_into_system_prompt"):

@@ -290,8 +290,7 @@ class Coder(core.module.Module):
         }
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    async def on_ready(self):
         self._parser_cache = {}
         self.enabled_tools = []
         self.sandbox_path = os.path.expanduser(

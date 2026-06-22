@@ -20,8 +20,7 @@ class Memory(core.module.Module):
         "max_pinned_memories": 20
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__( *args, **kwargs)
+    async def on_ready(self):
         self._mem = core.storage.StorageList("memory", type="msgpack")
         self._mem_deleted = core.storage.StorageList("deleted_memories", type="json")
         self.max_pinned = 10

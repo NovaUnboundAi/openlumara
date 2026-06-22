@@ -40,9 +40,7 @@ class Calendar(core.module.Module):
         }
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    async def on_ready(self):
         self.events = core.storage.StorageList("calendar", "json")
 
     async def on_ready(self):
