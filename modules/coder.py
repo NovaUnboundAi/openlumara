@@ -116,8 +116,8 @@ class Coder(core.module.Module):
 
         symbol_reading_tools = ["get_outline", "get_symbol", "format_file"]
         symbol_writing_tools = ["create_project", "create_file", "edit_symbol", "add_symbol_before", "add_symbol_after", "delete_symbol"]
-        file_reading_tools = ["read_file", "search_in_file", "grep", "find_files", "format_file"]
-        file_writing_tools = ["create_project", "create_file", "append_to_file", "edit", "search_replace", "format_file"]
+        file_reading_tools = ["read_file", "search", "grep", "find_files", "format_file"]
+        file_writing_tools = ["create_project", "create_file", "append_to_file", "edit", "replace", "format_file"]
 
         match self.config.get("reading_mode"):
             case "symbols": self.enabled_tools.extend(symbol_reading_tools)
@@ -144,10 +144,6 @@ class Coder(core.module.Module):
             attr = getattr(self, prop_name)
             if callable(attr) and prop_name not in self.enabled_tools:
                 self.disabled_tools.append(prop_name)
-
-    async def on_shutdown(self):
-        self.enabled_tools = []
-        self.disabled_tools = []
 
     def _get_project_path(self, project_name: str) -> str:
         return core.sandbox_path(self.sandbox_path, project_name.strip(os.path.sep))
@@ -718,7 +714,7 @@ class Coder(core.module.Module):
         except OSError as e:
             return self.result(f"Error reading file: {e}", success=False)
 
-    async def search_in_file(self, project_name: str, file_path: str, query: str, context_lines: int = 5, max_matches: int = 10):
+    async def search(self, project_name: str, file_path: str, query: str, context_lines: int = 5, max_matches: int = 10):
         """Search for text within a single file. Use for locating exact strings when symbols are unavailable."""
         file_path_str = self._get_file_path(project_name, file_path)
         if not os.path.exists(file_path_str):
@@ -741,7 +737,7 @@ class Coder(core.module.Module):
         except OSError as e:
             return self.result(f"Error: {e}", success=False)
 
-    async def search_replace(self, project_name: str, file_path: str, query: str, replacement: str):
+    async def replace(self, project_name: str, file_path: str, query: str, replacement: str):
         """Replace all occurrences of a string in a file. ONLY use if symbol-level replacement is impossible."""
         file_path_str = self._get_file_path(project_name, file_path)
         if not os.path.exists(file_path_str):
@@ -761,30 +757,6 @@ class Coder(core.module.Module):
                     f.write(new_content)
                 return self.result({"success": True, "message": f"Replaced {count} occurrence(s)", "file": file_path, "replacements": count}, success=True)
             return self.result({"success": True, "message": "No matches found.", "file": file_path}, success=True)
-        except OSError as e:
-            return self.result(f"Error: {e}", success=False)
-
-    async def edit(self, project_name: str, file_path: str, old_text: str, new_text: str):
-        """Perform a single precise text replacement. ONLY use if symbol-level editing fails."""
-        file_path_str = self._get_file_path(project_name, file_path)
-        if not os.path.exists(file_path_str):
-            return self.result("Error: file does not exist", success=False)
-        try:
-            with open(file_path_str, 'r', encoding='utf-8') as f:
-                content = f.read()
-            if old_text not in content:
-                return self.result("Error: old_text not found.", success=False)
-
-            new_content = content.replace(old_text, new_text, 1)
-            language = self._get_language_from_ext(file_path_str)
-            is_valid, error = self._verify_syntax_content(new_content.encode('utf-8'), language)
-            if not is_valid:
-                return self.result(f"Error: {error}. Edit not applied.", success=False)
-
-            await self._backup_file(file_path_str)
-            with open(file_path_str, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            return self.result(f"Successfully applied edit to {file_path}", success=True)
         except OSError as e:
             return self.result(f"Error: {e}", success=False)
 
@@ -944,7 +916,7 @@ For these languages, these instructions apply:
 2.  **Surgical Precision (Preferred):**
     -   **Reading:** Use `get_symbol` to read specific functions/classes. **Do not read the whole file just to see one function.**
     -   **Editing:** Use `edit_symbol` for precise changes.
-3.  **File-Level (Exceptions Only):** Use `read_file`, `edit`, `search_replace` ONLY when:
+3.  **File-Level (Exceptions Only):** Use `read_file`, `edit`, `replace` ONLY when:
     -   You need to inspect imports, top-level constants, or comments outside symbols.
     -   The change involves moving code between symbols (e.g. moving a function to a new class).
     -   Tree-sitter fails to parse a symbol.

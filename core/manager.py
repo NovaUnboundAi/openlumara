@@ -239,11 +239,6 @@ class Manager:
                 # reload config
                 core.config.load()
 
-        # create an array of all enabled tools so that we can reference it in the future
-        for tool in self.tools:
-            tool_name = tool.get("function").get("name")
-            self.tool_names.append(tool_name)
-
         # Attempt API connection but don't fail if it doesn't work
         await self._initialize_api_connection()
 
@@ -366,12 +361,13 @@ class Manager:
         # remove old tools for this module
         await self.unload_module_tools(module)
 
-        # re-run the module's setup (on_ready usually contains the config-dependent initialization logic)
+        # run the module shutdown hook
         try:
             await module.on_shutdown()
         except Exception as e:
             self.log("core", f"Error running on_shutdown for {module_name}: {core.detail_error(e)}")
 
+        # re-run the module's setup (on_ready usually contains the config-dependent initialization logic)
         try:
             await module.on_ready()
         except Exception as e:
@@ -744,6 +740,7 @@ class Manager:
                 tool["function"]["description"] = docstring
 
             self.tools.append(tool)
+            self.tool_names.append(tool["function"]["name"])
 
     async def unload_module_tools(self, module):
         """unloads all modules belonging to the specified module"""
@@ -752,6 +749,7 @@ class Manager:
                      if not t["function"]["name"].startswith(f"{module.name}_")]
         self.tool_names = [n for n in self.tool_names
                           if not n.startswith(f"{module.name}_")]
+        module.disabled_tools = []
 
         return True
 

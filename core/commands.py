@@ -85,9 +85,10 @@ def _convert_type(value: str):
     """
     Converts string inputs from the CLI/Chat into appropriate Python types.
     """
-    if value.lower() == "true":
+
+    if value.lower() in ["true", "on"]:
         return True
-    if value.lower() == "false":
+    if value.lower() in ["false", "off"]:
         return False
 
     # Try integer conversion
@@ -107,18 +108,19 @@ def _convert_type(value: str):
     # Default to string
     return value
 
-def _set_config_value(path: list, value: str):
+async def _set_config_value(path: list, value: str, manager=None):
     """
     Sets a configuration value at a nested path.
 
     Args:
         path: A list of keys representing the nested path (e.g., ["api", "url"]).
         value: The value to set (as a string, will be type-converted).
+        manager: Optional manager instance for reloading modules after settings change.
     """
     if not path:
         return "error: Path cannot be empty"
 
-    typed_value = _convert_type(value)
+    typed_value = _convert_type(value.strip())
 
     try:
         # Access the StorageDict instance from the config module
@@ -146,6 +148,18 @@ def _set_config_value(path: list, value: str):
 
         # Persist changes to the YAML file
         core.config.config.save()
+
+        # Check if this is a module setting change and reload the module
+        module_name = None
+        if manager and len(path) >= 3 and path[0] == "modules":
+            module_name = path[2]
+
+        if module_name:
+            try:
+                await manager.reload_module(module_name)
+                return f"Config updated: {' -> '.join(path)} = {typed_value}"
+            except Exception as e:
+                return f"Config updated: {' -> '.join(path)} = {typed_value}\nWarning: Failed to reload module '{module_name}': {e}"
 
         return f"Config updated: {' -> '.join(path)} = {typed_value}"
     except Exception as e:
@@ -502,7 +516,7 @@ class Commands:
                         return f"setting '{key}' does not exist at that path."
                 
                 if is_set:
-                    return str(_set_config_value(path_to_use, value_to_use))
+                    return await _set_config_value(path_to_use, value_to_use, self.channel.manager)
                 else:
                     return str(_get_config_value(path_to_use))
 
