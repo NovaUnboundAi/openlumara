@@ -656,7 +656,7 @@ class Manager:
         return descriptions, clean_doc
 
     async def load_module_tools(self, module):
-        for func_name in vars(module):
+        for func_name in dir(module):
             if func_name.startswith("_"):
                 # skip private methods and other private properties
                 continue
@@ -687,13 +687,6 @@ class Manager:
 
             # dynamically load class methods from classes
             func_params = dict(inspect.signature(func_obj).parameters)
-
-            # only get class methods with a self parameter
-            if not func_params.get("self"):
-                continue
-
-            # remove "self" arg from func
-            del(func_params["self"])
 
             func_params_translated = {}
             required_args = []
@@ -771,5 +764,4 @@ class Manager:
             return loaded_module
 
         await self.load_module_tools(loaded_module)
-
         return loaded_module
