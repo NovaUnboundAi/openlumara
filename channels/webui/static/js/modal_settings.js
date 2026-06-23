@@ -502,13 +502,32 @@ function unflattenObject(flat) {
 
 // Format label from key
 function formatLabel(key) {
-    return key
-    .split('.')
-    .pop()
-    .replace(/_/g, ' ')
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, str => str.toUpperCase())
-    .trim();
+    if (typeof key !== 'string') return key;
+
+    // Extract just the last part of a dotted key for display
+    const parts = key.split('.');
+    const lastPart = parts[parts.length - 1];
+
+    // Replace underscores with spaces and capitalize
+    return lastPart.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Get the current value for a given key path from the live settingsData.
+ * This is used during form re-renders to prevent losing unsaved changes.
+ */
+function getCurrentValue(key) {
+    const parts = key.split('.');
+    let current = settingsData;
+
+    for (const part of parts) {
+        if (current === null || current === undefined || typeof current !== 'object') {
+            return undefined;
+        }
+        current = current[part];
+    }
+
+    return current;
 }
 
 // Load settings from backend
@@ -1281,6 +1300,9 @@ function renderSettingsForm(categories, activeSettingsCategory = null) {
         section.appendChild(itemsContainer);
         form.appendChild(section);
     }
+
+    // Re-add the unsaved changes indicator after re-rendering
+    updateUnsavedIndicator();
 }
 
 
@@ -1372,7 +1394,9 @@ function createSliderInput(key, value, min = 0, max = 100, step = 1) {
     const wrapper = document.createElement('div');
     wrapper.className = 'setting-slider-container';
 
-    const currentVal = parseFloat(value) || 0;
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const currentVal = parseFloat(currentValue) || parseFloat(value) || 0;
     const minVal = parseFloat(min);
     const maxVal = parseFloat(max);
     const stepVal = parseFloat(step) || 1;
@@ -1426,6 +1450,9 @@ function createSelectInput(key, value, options) {
     wrapper.className = 'setting-select-wrapper';
     wrapper.dataset.key = key;
 
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+
     const select = document.createElement('select');
     select.className = 'setting-input';
     select.dataset.key = key;
@@ -1435,7 +1462,7 @@ function createSelectInput(key, value, options) {
         const option = document.createElement('option');
         option.value = optKey;
         option.textContent = optKey;
-        if (optKey === value) {
+        if (optKey === (currentValue !== undefined ? currentValue : value)) {
             option.selected = true;
         }
         select.appendChild(option);
@@ -1467,6 +1494,10 @@ function createSelectInput(key, value, options) {
 
 // Create model dropdown input with refresh button
 function createModelInput(key, value) {
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const resolvedValue = currentValue !== undefined ? currentValue : value;
+
     const wrapper = document.createElement('div');
     wrapper.className = 'model-input-wrapper';
     wrapper.dataset.key = key;
@@ -1494,17 +1525,17 @@ function createModelInput(key, value) {
             const option = document.createElement('option');
             option.value = model;
             option.textContent = model;
-            if (model === value) {
+            if (model === resolvedValue) {
                 option.selected = true;
             }
             select.appendChild(option);
         });
 
         // If current value not in list, add it as custom
-        if (value && !cachedModels.find(m => m === value)) {
+        if (resolvedValue && !cachedModels.find(m => m === resolvedValue)) {
             const customOption = document.createElement('option');
-            customOption.value = value;
-            customOption.textContent = `${value} (custom)`;
+            customOption.value = resolvedValue;
+            customOption.textContent = `${resolvedValue} (custom)`;
             customOption.selected = true;
             select.insertBefore(customOption, placeholderOption.nextSibling);
         }
@@ -1543,7 +1574,7 @@ function createModelInput(key, value) {
                 wrapper.replaceWith(newInput);
             } else {
                 // Show error, fall back to text input
-                const textInput = createTextInput(key, value, 'text');
+                const textInput = createTextInput(key, resolvedValue, 'text');
                 wrapper.replaceWith(textInput);
 
                 // Show error message
@@ -1568,7 +1599,7 @@ function createModelInput(key, value) {
         input.type = 'text';
         input.className = 'setting-input';
         input.dataset.key = key;
-        input.value = value ?? '';
+        input.value = resolvedValue ?? '';
         input.placeholder = 'Enter model name';
         input.oninput = () => handleSettingChange(key, input.value);
 
@@ -1631,14 +1662,19 @@ function createModelInput(key, value) {
 
 // Create toggle list (for enabled/disabled arrays)
 function createToggleListInput(key, value, isModuleList = false) {
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const resolvedValue = currentValue !== undefined ? currentValue : value;
+
     const wrapper = document.createElement('div');
     wrapper.className = 'toggle-list';
     wrapper.dataset.key = key;
 
-    const allItems = getAllToggleItems(value);
-    const enabledSet = new Set(value.enabled || []);
-    const descriptions = value.descriptions || {};
-    const unsafeModules = value.unsafeModules || {};
+    // Use resolved value for getAllToggleItems to get current state
+    const allItems = getAllToggleItems(resolvedValue);
+    const enabledSet = new Set(resolvedValue.enabled || []);
+    const descriptions = resolvedValue.descriptions || {};
+    const unsafeModules = resolvedValue.unsafeModules || {};
 
     const sortedItems = allItems
     .filter(item => {
@@ -1831,6 +1867,9 @@ function createTextInput(key, value, type = 'text') {
     keyLower.includes('secret') || keyLower.includes('password') ||
     keyLower.includes('credential');
 
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key) ?? '';
+
     // For sensitive fields, use a reveal/hide toggle
     if (isSensitive) {
         const wrapper = document.createElement('div');
@@ -1840,7 +1879,7 @@ function createTextInput(key, value, type = 'text') {
         const input = document.createElement('input');
         input.type = 'password';
         input.className = 'setting-input sensitive-input';
-        input.value = value ?? '';
+        input.value = currentValue;
         input.dataset.revealed = 'false';
 
         const toggleBtn = document.createElement('button');
@@ -1883,7 +1922,7 @@ function createTextInput(key, value, type = 'text') {
     input.type = type === 'url' ? 'url' : (type === 'email' ? 'email' : 'text');
     input.className = 'setting-input';
     input.dataset.key = key;
-    input.value = value ?? '';
+    input.value = currentValue;
     input.oninput = () => handleSettingChange(key, input.value);
     return input;
 }
@@ -1893,11 +1932,14 @@ function createPasswordInput(key, value) {
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'position: relative; display: flex; align-items: center;';
 
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key) ?? '';
+
     const input = document.createElement('input');
     input.type = 'password';
     input.className = 'setting-input';
     input.dataset.key = key;
-    input.value = value ?? '';
+    input.value = currentValue;
     input.style.paddingRight = '40px';
     input.oninput = () => handleSettingChange(key, input.value);
 
@@ -1917,28 +1959,37 @@ function createPasswordInput(key, value) {
 
 // Create textarea
 function createTextareaInput(key, value) {
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key) ?? '';
+
     const textarea = document.createElement('textarea');
     textarea.className = 'setting-input setting-textarea';
     textarea.dataset.key = key;
-    textarea.value = value ?? '';
+    textarea.value = currentValue;
     textarea.oninput = () => handleSettingChange(key, textarea.value);
     return textarea;
 }
 
 // Create number input
 function createNumberInput(key, value) {
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key) ?? 0;
+
     const input = document.createElement('input');
     input.type = 'number';
     input.className = 'setting-input';
     input.dataset.key = key;
-    input.value = value ?? 0;
-    input.step = Number.isInteger(value) ? '1' : '0.01';
+    input.value = currentValue;
+    input.step = Number.isInteger(currentValue) ? '1' : '0.01';
     input.oninput = () => handleSettingChange(key, parseFloat(input.value) || 0);
     return input;
 }
 
 // Create toggle switch (single boolean)
 function createToggleInput(key, value, isUnsafe = false) {
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key) ?? value;
+
     const wrapper = document.createElement('div');
     wrapper.className = 'setting-toggle-wrapper';
 
@@ -1947,14 +1998,14 @@ function createToggleInput(key, value, isUnsafe = false) {
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = value;
+    checkbox.checked = currentValue;
 
     const slider = document.createElement('span');
     slider.className = 'toggle-slider';
 
     const labelSpan = document.createElement('span');
     labelSpan.className = 'setting-toggle-label';
-    labelSpan.textContent = value ? 'Enabled' : 'Disabled';
+    labelSpan.textContent = currentValue ? 'Enabled' : 'Disabled';
 
     // Handle change
     checkbox.onchange = async () => {
@@ -1988,7 +2039,10 @@ function createArrayInput(key, value) {
     wrapper.className = 'setting-array';
     wrapper.dataset.key = key;
 
-    const items = Array.isArray(value) ? [...value] : [];
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const resolvedValue = currentValue !== undefined ? currentValue : value;
+    const items = Array.isArray(resolvedValue) ? [...resolvedValue] : [];
 
     const header = document.createElement('div');
     header.className = 'setting-array-header';
@@ -2057,7 +2111,10 @@ function createArrayInput(key, value) {
 
 // Create object input
 function createObjectInput(key, value) {
-    const entries = value && typeof value === 'object' ? Object.entries(value) : [];
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const resolvedValue = currentValue !== undefined ? currentValue : value;
+    const entries = resolvedValue && typeof resolvedValue === 'object' ? Object.entries(resolvedValue) : [];
 
     const wrapper = document.createElement('div');
     wrapper.className = 'setting-object';
@@ -3835,6 +3892,10 @@ function createReasoningEffortSlider(key, value) {
     const container = document.createElement('div');
     container.className = 'setting-slider-container';
 
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const resolvedValue = currentValue !== undefined ? currentValue : value;
+
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.className = 'setting-slider';
@@ -3860,10 +3921,10 @@ function createReasoningEffortSlider(key, value) {
 
     // Find current index from value
     let currentIndex = 0;
-    if (value === 'low') currentIndex = 1;
-    else if (value === 'medium') currentIndex = 2;
-    else if (value === 'high') currentIndex = 3;
-    else if (value === 'xhigh') currentIndex = 4;
+    if (resolvedValue === 'low') currentIndex = 1;
+    else if (resolvedValue === 'medium') currentIndex = 2;
+    else if (resolvedValue === 'high') currentIndex = 3;
+    else if (resolvedValue === 'xhigh') currentIndex = 4;
     else currentIndex = 0;
 
     slider.value = currentIndex;
@@ -3898,7 +3959,9 @@ function createPercentageSlider(key, value) {
     const wrapper = document.createElement('div');
     wrapper.className = 'setting-slider-container';
 
-    const currentVal = parseFloat(value) || 0;
+    // Get current value from live settingsData (for re-render safety)
+    const currentValue = getCurrentValue(key);
+    const currentVal = parseFloat(currentValue) || parseFloat(value) || 0;
     const minVal = 0;
     const maxVal = 1;
     const stepVal = 0.01;
