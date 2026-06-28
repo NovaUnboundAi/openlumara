@@ -20,7 +20,8 @@ class Coder(core.module.Module):
     """Allows your AI to write, edit and test code."""
 
     dependencies = [
-        "tree-sitter", "tree-sitter-python", "tree-sitter-javascript",
+        "regex", "tree-sitter",
+        "tree-sitter-python", "tree-sitter-javascript",
         "tree-sitter-typescript", "tree-sitter-cpp", "tree-sitter-c-sharp",
         "tree-sitter-rust", "tree-sitter-ruby", "tree-sitter-go", "tree-sitter-java"
     ]
@@ -826,7 +827,7 @@ class Coder(core.module.Module):
                         with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
                             lines = f.readlines()
 
-                        # Map 0-based line indices to symbol names if supported
+                        # Map 0-based line indices to symbol names using the same prefix logic as _walk_for_symbols
                         symbol_map = {}
                         if language != 'generic' and language in self.LANGUAGES:
                             parse_result = self._parse_file(filepath, language)
@@ -835,23 +836,28 @@ class Coder(core.module.Module):
                                 lang_config = self.LANGUAGES[language]
                                 target_types = lang_config.get('symbol_types', {})
 
-                                def collect_symbols(node, parent_symbol):
+                                def collect_symbols(node, prefix: str):
+                                    if node.type in target_types:
+                                        sym_name = None
+                                        for c in node.children:
+                                            if c.type in ['identifier', 'property_identifier', 'name', 'field_identifier']:
+                                                try:
+                                                    sym_name = c.text.decode('utf-8')
+                                                    break
+                                                except:
+                                                    pass
+                                        if sym_name:
+                                            full_name = f"{target_types[node.type]}: {prefix}{sym_name}"
+                                            for ln in range(node.start_point[0], node.end_point[0] + 1):
+                                                symbol_map[ln] = full_name
+                                            new_prefix = f"{prefix}{sym_name}."
+                                            for child in node.children:
+                                                collect_symbols(child, new_prefix)
+                                            return
                                     for child in node.children:
-                                        if child.type in target_types:
-                                            sym_name = None
-                                            for c in child.children:
-                                                if c.type in ['identifier', 'property_identifier', 'name', 'field_identifier']:
-                                                    try: sym_name = c.text.decode('utf-8'); break
-                                                    except: pass
-                                            if sym_name:
-                                                parent_symbol = f"{target_types[child.type]}: {sym_name}"
-                                        # Assign parent_symbol to all lines this node spans
-                                        if parent_symbol:
-                                            for ln in range(child.start_point[0], child.end_point[0] + 1):
-                                                symbol_map[ln] = parent_symbol
-                                        collect_symbols(child, parent_symbol)
+                                        collect_symbols(child, prefix)
 
-                                collect_symbols(tree.root_node, "Global")
+                                collect_symbols(tree.root_node, "")
 
                         for i, line in enumerate(lines):
                             if total_matches >= max_results: break
