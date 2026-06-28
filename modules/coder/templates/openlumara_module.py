@@ -1,5 +1,10 @@
 import core
 
+# ALWAYS ensure the class name maps perfectly to the filename.
+# the class name is in CamelCase, the filename is the snake_case equivalent of it.
+# e.g. ExampleModule -> example_module.py
+#
+# This is ESSENTIAL for the module to be detected and loaded.
 class ExampleModule(core.module.Module):
     """
     A sample module demonstrating core features.
