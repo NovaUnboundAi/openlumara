@@ -396,15 +396,7 @@ async function stopGeneration(sent_from_command = false) {
 
     TypewriterAudioManager.stopProcessingSound();
 
-    if (isStreaming) {
-        // for now, remove the ai message
-        // in the future i want to add support for incomplete streamed messages in the backend
-        // but for now, just delete it
-        window._currentAiMsgDiv.remove();
-        window._currentAiWrapper.remove();
-    } else {
-        finalizeStreamingUI(window._currentAiWrapper, window._currentAiMsgDiv);
-    }
+    finalizeStreamingUI(window._currentAiWrapper, window._currentAiMsgDiv);
 
     finishStream();
 }
