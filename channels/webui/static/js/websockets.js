@@ -561,7 +561,6 @@ function handleWebSocketMessage(data) {
 function handleNewMessage(msg) {
     if (!isWsConnected) return;
     if (!msg || msg.index === undefined) return;
-    if (msg.index < lastMessageIndex) return;
 
     msgEl = renderSingleMessage(msg, msg.index, true);
 
