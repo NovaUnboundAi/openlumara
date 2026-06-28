@@ -33,10 +33,11 @@ class ExampleModule(core.module.Module):
                 "nag": "Makes your AI nag you a lot"
             }
         },
-        "allow_ping": {
-            "description": "Whether to allow the AI to use the ping tool",
-            "default": True
-        }
+        "example_list": {
+            "type": "list",
+            "description": "This is an example setting of type `list`. Will let the user add/remove multiple entries. It's basically an array (a python `list`).",
+            "default": []
+        },
     }
 
     # list of dependencies that the module needs in order to work.
