@@ -20,9 +20,8 @@ class Coder(core.module.Module):
     """Allows your AI to write, edit and test code."""
 
     dependencies = [
-        "regex", "tree-sitter",
-        "tree-sitter-python", "tree-sitter-javascript",
-        "tree-sitter-typescript", "tree-sitter-cpp", "tree-sitter-c-sharp",
+        "regex", "tree-sitter", "tree-sitter-python", "tree-sitter-javascript",
+        "tree-sitter-cpp", "tree-sitter-c-sharp",
         "tree-sitter-rust", "tree-sitter-ruby", "tree-sitter-go", "tree-sitter-java"
     ]
 
@@ -46,10 +45,6 @@ class Coder(core.module.Module):
         'javascript': {
             'extensions': ['.js', '.jsx'], 'body_type': 'brace',
             'symbol_types': {'class_declaration': 'class', 'function_declaration': 'function', 'method_definition': 'method', 'arrow_function': 'function'}
-        },
-        'typescript': {
-            'extensions': ['.ts', '.tsx'], 'body_type': 'brace',
-            'symbol_types': {'class_declaration': 'class', 'function_declaration': 'function', 'method_definition': 'method'}
         },
         'cpp': {
             'extensions': ['.cpp', '.c', '.h', '.hpp', '.cc'], 'body_type': 'brace',

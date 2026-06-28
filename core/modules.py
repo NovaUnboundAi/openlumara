@@ -158,40 +158,45 @@ async def uninstall_module_deps(package, module_name, manager, exclude=None):
     if installed:
         # re-import so we can find the uninstall hook
         import importlib
-        mod = importlib.import_module(f"{package.__name__}.{module_name}")
+        try:
+            mod = importlib.import_module(f"{package.__name__}.{module_name}")
+        except Exception:
+            # If the module can't be imported (e.g., missing dependencies), skip the uninstall hook
+            mod = None
 
-        # find the class
-        module_class = None
-        is_channel = False
-        is_module = False
-        for attr in dir(mod):
-            obj = getattr(mod, attr)
-            if not inspect.isclass(obj):
-                # if it's somehow not a class.. SKIP
-                continue
+        if mod:
+            # find the class
+            module_class = None
+            is_channel = False
+            is_module = False
+            for attr in dir(mod):
+                obj = getattr(mod, attr)
+                if not inspect.isclass(obj):
+                    # if it's somehow not a class.. SKIP
+                    continue
 
-            if issubclass(obj, core.module.Module):
-                is_module = True
-            elif issubclass(obj, core.channel.Channel):
-                is_channel = True
-            else:
-                continue
+                if issubclass(obj, core.module.Module):
+                    is_module = True
+                elif issubclass(obj, core.channel.Channel):
+                    is_channel = True
+                else:
+                    continue
 
-            if (isinstance(obj, type) and obj is not core.module.Module):
-                module_class = obj
-                break
+                if (isinstance(obj, type) and obj is not core.module.Module):
+                    module_class = obj
+                    break
 
-        if module_class:
-            # create a temporary instance
-            is_user = package.__name__ == 'user_modules'
-            if is_module:
-                instance = module_class(manager, is_user_module=is_user)
-            elif is_channel:
-                instance = module_class(manager)
+            if module_class:
+                # create a temporary instance
+                is_user = package.__name__ == 'user_modules'
+                if is_module:
+                    instance = module_class(manager, is_user_module=is_user)
+                elif is_channel:
+                    instance = module_class(manager)
 
-            # run the uninstall hook
-            if hasattr(instance, 'on_uninstall'):
-                await instance.on_uninstall()
+                # run the uninstall hook
+                if hasattr(instance, 'on_uninstall'):
+                    await instance.on_uninstall()
 
         _uninstall_deps(module_name, installed, manager)
         return True
