@@ -17,6 +17,7 @@ class ExampleModule(core.module.Module):
 
     # settings defined here will show up in all channels that support it (such as the webUI)
     # for the user to change as they see fit
+    # valid types: string, long_text, boolean, number, percentage, select
     settings = {
         "example_setting": {
             "description": "This is an example setting. Settings default to type boolean when a type is not specified.",
