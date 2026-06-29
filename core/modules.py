@@ -1,3 +1,4 @@
+import os
 import core
 import re
 import inspect
@@ -154,6 +155,14 @@ async def uninstall_module_deps(package, module_name, manager, exclude=None):
 
     # Filter out dependencies that are still required by enabled modules
     installed = [dep for dep in installed if dep not in exclude]
+
+    # filter out dependencies from requirements.txt (dependencies that openlumara ALWAYS needs)
+    requirementstxt = core.get_path("requirements.txt")
+    if os.path.exists(requirementstxt):
+        with open(requirementstxt, 'r', encoding="utf-8") as f:
+            base_deps = [dep.strip() for dep in f.read().split("\n") if dep.strip()]
+
+    installed = [dep for dep in installed if dep not in base_deps]
 
     if installed:
         # re-import so we can find the uninstall hook
