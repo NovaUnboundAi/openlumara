@@ -518,6 +518,19 @@ class Coder(core.module.Module):
         symbols.sort(key=lambda x: x['line'])
         return self.result({"symbols": [{"name": s["name"], "type": s["type"]} for s in symbols]}, success=True)
 
+    def _check_if_symbol_is_class(self, node, language):
+        # Check if the target is a class to prevent reading entire classes
+        lang_config = self.LANGUAGES.get(language, {})
+        target_types = lang_config.get('symbol_types', {})
+        is_class = False
+
+        # Iterate through the language config to see if this node type maps to 'class'
+        for ts_type, type_str in target_types.items():
+            if node.type == ts_type and type_str == 'class':
+                return True
+
+        return False
+
     async def get_symbol(self, project_name: str, file_path: str, symbol_name: str, language: str = None):
         """Read a specific symbol (function/class/method). Use after get_outline to inspect exact code before making changes."""
         file_path_str = self._get_file_path(project_name, file_path)
@@ -534,33 +547,9 @@ class Coder(core.module.Module):
 
         node, _ = info
 
-        # Check if the target is a class to prevent reading entire classes
-        lang_config = self.LANGUAGES.get(language, {})
-        target_types = lang_config.get('symbol_types', {})
-        is_class = False
-
-        # Iterate through the language config to see if this node type maps to 'class'
-        for ts_type, type_str in target_types.items():
-            if node.type == ts_type and type_str == 'class':
-                is_class = True
-                break
-
-        if is_class:
-            # Extract the class name for the error message
-            class_name = symbol_name
-            for child in node.children:
-                if child.type in ['identifier', 'property_identifier', 'name', 'field_identifier']:
-                    try:
-                        class_name = child.text.decode('utf-8')
-                        break
-                    except:
-                        continue
-
-            return self.result(
-                f"Error: Cannot read entire class '{class_name}'. "
-                f"Read individual methods instead (e.g., '{class_name}.method_name').",
-                success=False
-            )
+        # if it's a class, return the outline instead
+        if self._check_if_symbol_is_class(node, language):
+            return self.result({"outline": await self.get_outline(project_name, file_path, language), "message": "This is an overview of all the symbols in the file. Read the ones you want to read using get_symbol."})
 
         parse_result = self._parse_file(file_path_str, language)
         if not parse_result:
@@ -583,6 +572,10 @@ class Coder(core.module.Module):
         if not info:
             return self.result(f"Error: symbol '{symbol_name}' not found", success=False)
         node, _ = info
+
+        # if it's a class, outright reject the edit
+        if self._check_if_symbol_is_class(node, language):
+            return self.result("Error: target symbol is a class. Do NOT edit entire classes. Target class methods instead - use get_outline() on the class to see them.", success=False)
 
         parse_result = self._parse_file(file_path_str, language)
         if not parse_result:
@@ -686,6 +679,11 @@ class Coder(core.module.Module):
             return self.result(f"Error: symbol '{symbol_name}' not found", success=False)
 
         node, _ = info
+
+        # if it's a class, outright reject the edit
+        if self._check_if_symbol_is_class(node, language):
+            return self.result("Error: target symbol is a class. Do NOT edit entire classes. Target class methods instead - use get_outline() on the class to see them.", success=False)
+
         parse_result = self._parse_file(file_path_str, language)
         if not parse_result:
             return self.result("Error: failed to parse file", success=False)
