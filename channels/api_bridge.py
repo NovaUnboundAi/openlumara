@@ -110,9 +110,8 @@ class ApiBridge(core.channel.Channel):
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
-            allow_credentials=True,
             allow_methods=["*"],
-            allow_headers=["*"],
+            allow_headers=["*"]
         )
 
         # require API key if set up that way
