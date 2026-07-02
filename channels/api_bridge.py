@@ -108,7 +108,8 @@ class ApiBridge(core.channel.Channel):
             case _:
                 self.host = "127.0.0.1"
 
-        self.log("api bridge", f"The bridge is up and running on {self.host}:{self.port}")
+        self.server = None
+        self.server_running = False
 
     async def run(self):
         """The main loop: Starts the FastAPI server."""
@@ -163,8 +164,19 @@ class ApiBridge(core.channel.Channel):
 
         # Start the server
         config = uvicorn.Config(app, host=self.host, port=self.port, log_level="critical")
-        server = uvicorn.Server(config)
-        await server.serve()
+        self.server = uvicorn.Server(config)
+
+        self.log("api bridge", f"The API bridge is up and running on {self.host}:{self.port}")
+        self.server_running = True
+        await self.server.serve()
+        self.server_running = False
+
+    async def on_shutdown(self):
+        if hasattr(self, "server") and self.server:
+            self.server.should_exit = True
+            while self.server_running:
+                await asyncio.sleep(0.1)
+            self.log("api bridge", "API bridge server shut down successfully.")
 
     async def _completion_handler(self, ol_message: dict, model: str) -> JSONResponse:
         try:
