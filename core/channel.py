@@ -266,7 +266,7 @@ class Channel:
                 return {"role": "assistant", "content": self._get_disconnection_message()}
 
         # run module event hooks
-        usr_msg_result = user_message.get("content", "")
+        usr_msg_result = None
         for module_name, module in self.manager.modules.items():
             if hasattr(module, "on_user_message"):
                 try:
@@ -387,7 +387,7 @@ class Channel:
                 return
 
         # run user message module event hooks
-        usr_msg_result = user_message.get("content", "")
+        usr_msg_result = None
         for module_name, module in self.manager.modules.items():
             if hasattr(module, "on_user_message"):
                 try:
@@ -413,7 +413,7 @@ class Channel:
             return
 
         # yield user message as a special token for display in UI's (because user message can be modified by module hooks)
-        yield {"type": "user_message", "content": usr_msg_result}
+        yield {"type": "user_message", "content": user_message.get("content")}
 
         # estimate tokens used for user message
         user_message_token_estimation = 0
