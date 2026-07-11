@@ -112,6 +112,10 @@ class Chat:
         self.using_api_token_data = False
 
         self.data.save()
+
+        # start a system prompt warmup so that the response is instant (if the user types slowly... lol)
+        await self.channel.manager.API.start_prompt_warmup(notify=core.debug)
+
         return True
     async def clear(self):
         if self.current is None:
@@ -126,7 +130,11 @@ class Chat:
         
         await self.save()
 
+        # start a system prompt warmup so that the response is instant (if the user types slowly... lol)
+        await self.channel.manager.API.start_prompt_warmup(notify=core.debug)
+
         return True
+
     async def delete(self, id: str):
         """delete an entire chat"""
 
@@ -147,6 +155,12 @@ class Chat:
                 # Current was after deleted item, shift down
                 self.current -= 1
 
+        # start a prompt warmup using this chat's data
+        try:
+            await self.channel.manager.API.start_prompt_warmup(context=await self.channel.context.get(), notify=core.debug)
+        except Exception as e:
+            self.channel.log("core", f"failure while sending prompt warmup to API: {core.detail_error(e)}")
+
         return self.current
 
     async def save(self):
@@ -154,13 +168,20 @@ class Chat:
             await self.new()
 
         return self.data.save()
+
     async def load(self, id: str):
         index = self._find_index(id)
 
-        if index is None:
+        if index is None or self.current == index:
             return False
 
         self._set_current(index)
+
+        # start a prompt warmup using this chat's data
+        try:
+            await self.channel.manager.API.start_prompt_warmup(context=await self.channel.context.get(), notify=core.debug)
+        except Exception as e:
+            self.channel.log("core", f"failure while sending prompt warmup to API: {core.detail_error(e)}")
 
         return True
 

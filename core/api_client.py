@@ -140,7 +140,7 @@ class APIClient():
         # so that the AI is ready to respond right away when the user has finished
         # typing their message
         # (thanks to https://www.reddit.com/r/LocalLLaMA/comments/1uskb1g/speculative_cache_warming_warms_your_cache_while/ for the idea)
-        await self.start_prompt_warmup()
+        await self.start_prompt_warmup(context=[{"role": "system", "content": await self.manager.get_system_prompt()}])
 
         return True
 
@@ -353,20 +353,36 @@ class APIClient():
 
         return response
 
-    async def _run_warmup(self):
-        system_prompt = await self.manager.get_system_prompt()
-        ctx = [{"role": "system", "content": system_prompt}]
+    async def _run_warmup(self, context=None, notify=True):
+        try:
+            if not context:
+                prompt = await self.manager.get_system_prompt()
+                context = [{"role": "system", "content": prompt}]
 
-        # send only the system prompt and let the AI only generate 1 token max
-        self.prompt_warming_up = True
-        await self._request(ctx, stream=False, tools=self.manager.tools, use_thinking=False, max_completion_tokens=1)
-        self.prompt_warming_up = False
+            self.prompt_warming_up = True
+            await self._request(context, stream=False, tools=self.manager.tools, use_thinking=False, max_completion_tokens=1)
 
-        self.manager.log("API", "System prompt warmup complete")
+            if notify:
+                self.manager.log("API", "Prompt warmup complete")
 
-    async def start_prompt_warmup(self):
-        self._warmup_task = asyncio.create_task(self._run_warmup())
-        self.manager.log("API", "Sending system prompt in advance to make AI response instant.. (system prompt warmup)")
+        except asyncio.CancelledError:
+            # Silently ignore when the task is cancelled during chat switch
+            if core.debug:
+                self.manager.log("API", "Interrupting prompt warmup")
+            pass
+        finally:
+            self.prompt_warming_up = False
+
+    async def start_prompt_warmup(self, context=None, notify=True):
+        # cancel existing warmup task if there's already one running
+        # (for example if the warmup is running for one chat,
+        # and the user switches to a different one)
+        if self._warmup_task and not self._warmup_task.done():
+            self._warmup_task.cancel()
+
+        self._warmup_task = asyncio.create_task(self._run_warmup(context=context, notify=notify))
+        if notify:
+            self.manager.log("API", "Sending prompt in advance to make AI response instant.. (prompt warmup)")
 
     async def send(self, context: list, system_prompt=True, use_tools=True, tools=None, use_thinking=True, **kwargs):
         """send a message to the LLM. returns a string or error dict"""
@@ -374,6 +390,8 @@ class APIClient():
         self.cancel_request = False
         # wait for the system prompt warmup to finish if it's still running
         if self._warmup_task and not self._warmup_task.done():
+            if core.debug:
+                self.manager.log("API", "Waiting for prompt warmup to complete..")
             await self._warmup_task
 
         # use default tools if not specified. allow overrides
@@ -399,6 +417,8 @@ class APIClient():
         self.cancel_request = False
         # wait for the system prompt warmup to finish if it's still running
         if self._warmup_task and not self._warmup_task.done():
+            if core.debug:
+                self.manager.log("API", "Waiting for prompt warmup to complete..")
             await self._warmup_task
 
         # use default tools if not specified. allow overrides
