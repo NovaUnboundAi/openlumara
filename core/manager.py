@@ -443,7 +443,6 @@ class Manager:
 
         connected = await self.API.reconnect()
         if connected:
-            self.log("API", "Reconnected successfully")
             return {
                 "success": True,
                 "message": "Successfully connected to API"
