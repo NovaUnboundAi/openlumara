@@ -22,6 +22,7 @@ class APIClient():
 
         self.cancel_request = False
         self.prompt_warming_up = False
+        self.cancel_prompt_warmup = False
         self._warmup_task = None
 
         self._connection_error = None
@@ -278,7 +279,10 @@ class APIClient():
 
         try:
             # check for cancellation before starting the request
-            if self.cancel_request:
+            # to prevent continuing a toolcall chain
+            if self.cancel_request and not self.prompt_warming_up:
+                if core.debug:
+                    self.manager.log("api", "Cancelling request")
                 return {"error": "cancelled", **self._get_user_friendly_message("cancelled")}
 
             # wrap the request in a way that we can check for cancellation
@@ -290,9 +294,10 @@ class APIClient():
 
             # monitor the task and the cancel_request flag
             while not request_task.done():
-                if self.cancel_request:
+                if self.cancel_request or self.cancel_prompt_warmup:
                     request_task.cancel()
-                    return {"error": "cancelled", **self._get_user_friendly_message("cancelled")}
+                    await self.stop_prompt_warmup()
+                    raise asyncio.CancelledError("request cancelled")
 
                 await asyncio.sleep(0.1)
 
@@ -311,8 +316,8 @@ class APIClient():
 
         except asyncio.CancelledError as e:
             if self.prompt_warming_up:
-                # silently swallow
-                return
+                # propate it up the chain
+                raise
 
             self.manager.log_error("request was cancelled", e)
             return {"error": "cancelled", **self._get_user_friendly_message("cancelled")}
@@ -361,6 +366,7 @@ class APIClient():
 
             self.prompt_warming_up = True
             await self._request(context, stream=False, tools=self.manager.tools, use_thinking=False, max_completion_tokens=1)
+            self.prompt_warming_up = False
 
             if notify:
                 self.manager.log("API", "Prompt warmup complete")
@@ -377,22 +383,36 @@ class APIClient():
         # cancel existing warmup task if there's already one running
         # (for example if the warmup is running for one chat,
         # and the user switches to a different one)
-        if self._warmup_task and not self._warmup_task.done():
-            self._warmup_task.cancel()
+        await self.stop_prompt_warmup()
 
         self._warmup_task = asyncio.create_task(self._run_warmup(context=context, notify=notify))
         if notify:
             self.manager.log("API", "Sending prompt in advance to make AI response instant.. (prompt warmup)")
 
+    async def stop_prompt_warmup(self):
+        if self._warmup_task and not self._warmup_task.done():
+            self.cancel_prompt_warmup = True # makes the loop in _request force stop
+
+            self._warmup_task.cancel()
+            try:
+                await self._warmup_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                if core.debug:
+                    self.manager.log("api", "Warmup task failed during cancellation")
+            finally:
+                self.cancel_prompt_warmup = False
+        self._warmup_task = None
+        self.prompt_warming_up = False
+
     async def send(self, context: list, system_prompt=True, use_tools=True, tools=None, use_thinking=True, **kwargs):
         """send a message to the LLM. returns a string or error dict"""
 
         self.cancel_request = False
-        # wait for the system prompt warmup to finish if it's still running
-        if self._warmup_task and not self._warmup_task.done():
-            if core.debug:
-                self.manager.log("API", "Waiting for prompt warmup to complete..")
-            await self._warmup_task
+
+        # cancel the prompt warmup if it's still running
+        await self.stop_prompt_warmup()
 
         # use default tools if not specified. allow overrides
         if not tools:
@@ -410,16 +430,17 @@ class APIClient():
         except Exception as e:
             self.manager.log_error("error while processing response from AI", e)
             return {"error": "processing_failed", **self._get_user_friendly_message("processing_failed", e)}
+        finally:
+            await self.stop_prompt_warmup()
+            self.cancel_request = False
 
     async def send_stream(self, context: list, use_tools=True, tools=None, use_thinking=True, **kwargs):
         """send a message to the LLM. is an iterable async generator"""
 
         self.cancel_request = False
-        # wait for the system prompt warmup to finish if it's still running
-        if self._warmup_task and not self._warmup_task.done():
-            if core.debug:
-                self.manager.log("API", "Waiting for prompt warmup to complete..")
-            await self._warmup_task
+
+        # cancel the prompt warmup if it's still running
+        await self.stop_prompt_warmup()
 
         # use default tools if not specified. allow overrides
         if not tools:
@@ -446,6 +467,9 @@ class APIClient():
         except Exception as e:
             self.manager.log_error("error while sending request to AI", e)
             yield {"type": "error", "content": {"error": "stream_failed", **self._get_user_friendly_message("processing_failed", e)}}
+        finally:
+            await self.stop_prompt_warmup()
+            self.cancel_request = False
 
     async def cancel(self):
         """cancel a request that's been sent to the AI"""

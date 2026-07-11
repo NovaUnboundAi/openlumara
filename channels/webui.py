@@ -1103,6 +1103,16 @@ async def load_chat(id: str, user: str = Depends(require_auth)):
         raise HTTPException(status_code=500, detail="Channel not available")
 
     await channel_instance._set_as_active_channel()
+
+    # prevent buggy frontend code from reloading the same chat more than once (ugh)
+    curr_chat_id = await channel_instance.context.chat.get_id()
+
+    if id.strip() == curr_chat_id.strip():
+        return {
+            "success": "false",
+            "reason": "chat already loaded"
+        }
+
     success = await channel_instance.context.chat.load(id)
     if not success:
         raise HTTPException(status_code=404, detail="Chat not found")
