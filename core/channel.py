@@ -646,6 +646,9 @@ class Channel:
             token_type = token.get("type")
             content = token.get("content", "")
 
+            if token_type == "prompt_progress":
+                yield token
+
             # # collapse consecutive newlines
             try:
                 # format the reasoning to look all fancy

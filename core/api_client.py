@@ -21,6 +21,8 @@ class APIClient():
         self._messages = []
 
         self.cancel_request = False
+        self.prompt_warming_up = False
+        self._warmup_task = None
 
         self._connection_error = None
         self._last_connection_attempt = None
@@ -132,7 +134,14 @@ class APIClient():
         self._connection_attempts = 0
         self.supports_developer_role = core.config.get("api", "use_developer_role", default=False)
 
-        # self.manager.log("API", "Successfully connected to AI")
+        self.manager.log("API", "Successfully connected to AI")
+
+        # send the system prompt in the background,
+        # so that the AI is ready to respond right away when the user has finished
+        # typing their message
+        # (thanks to https://www.reddit.com/r/LocalLLaMA/comments/1uskb1g/speculative_cache_warming_warms_your_cache_while/ for the idea)
+        await self.start_prompt_warmup()
+
         return True
 
     def get_connection_status(self):
@@ -284,6 +293,7 @@ class APIClient():
                 if self.cancel_request:
                     request_task.cancel()
                     return {"error": "cancelled", **self._get_user_friendly_message("cancelled")}
+
                 await asyncio.sleep(0.1)
 
             response = await request_task
@@ -299,8 +309,12 @@ class APIClient():
                 self.manager.log_error("Bad request (400)", e)
                 return {"error": "api_error", **self._get_user_friendly_message("api_error", e)}
 
-        except asyncio.CancelledError:
-            self.manager.log_error("request was cancelled", None)
+        except asyncio.CancelledError as e:
+            if self.prompt_warming_up:
+                # silently swallow
+                return
+
+            self.manager.log_error("request was cancelled", e)
             return {"error": "cancelled", **self._get_user_friendly_message("cancelled")}
 
         except openai.AuthenticationError as e:
@@ -339,10 +353,28 @@ class APIClient():
 
         return response
 
+    async def _run_warmup(self):
+        system_prompt = await self.manager.get_system_prompt()
+        ctx = [{"role": "system", "content": system_prompt}]
+
+        # send only the system prompt and let the AI only generate 1 token max
+        self.prompt_warming_up = True
+        await self._request(ctx, stream=False, tools=self.manager.tools, use_thinking=False, max_completion_tokens=1)
+        self.prompt_warming_up = False
+
+        self.manager.log("API", "System prompt warmup complete")
+
+    async def start_prompt_warmup(self):
+        self._warmup_task = asyncio.create_task(self._run_warmup())
+        self.manager.log("API", "Sending system prompt in advance to make AI response instant.. (system prompt warmup)")
+
     async def send(self, context: list, system_prompt=True, use_tools=True, tools=None, use_thinking=True, **kwargs):
         """send a message to the LLM. returns a string or error dict"""
 
         self.cancel_request = False
+        # wait for the system prompt warmup to finish if it's still running
+        if self._warmup_task and not self._warmup_task.done():
+            await self._warmup_task
 
         # use default tools if not specified. allow overrides
         if not tools:
@@ -365,6 +397,9 @@ class APIClient():
         """send a message to the LLM. is an iterable async generator"""
 
         self.cancel_request = False
+        # wait for the system prompt warmup to finish if it's still running
+        if self._warmup_task and not self._warmup_task.done():
+            await self._warmup_task
 
         # use default tools if not specified. allow overrides
         if not tools:

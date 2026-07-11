@@ -252,7 +252,7 @@ class Manager:
             self._async_tasks.add(asyncio.create_task(channel._start_push_queue()))
 
         # Attempt API connection but don't fail if it doesn't work
-        # await self._initialize_api_connection()
+        await self._initialize_api_connection()
 
         # run everything
         self.log("core", "Startup complete")
@@ -435,10 +435,7 @@ class Manager:
 
         connected = await self.API.connect()
         if not connected:
-            error = self.API.get_last_error() or "Unknown error"
-            self.log("API", f"Failed to connect: {error}")
-            self.log("API", "OpenLumara will continue in disconnected mode.")
-            self.log("API", "Use the /reconnect command to retry after fixing your configuration.")
+            self.log("API", "Failed to connect to AI. Perhaps you haven't set it up yet? Make sure to set up your API URL in the settings.")
 
     async def reconnect_api(self):
         """Manually trigger API reconnection. Returns status dict."""

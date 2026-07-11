@@ -67,19 +67,29 @@ class Cli(core.channel.Channel):
         print("sending..", end="", flush=True)
 
         first_token_received = False
+        processing_prompt = False
         async for token in self.format_stream_for_text(
             self.send_stream({"role": "user", "content": msg}, commands_authorized=True),
             use_markdown=False
         ):
-            if not first_token_received:
-                # remove sending indicator using \r
-                print("\r", end="", flush=True)
-                first_token_received = True
-
             token_type = token.get("type")
             content = token.get("content", "")
 
+            if token_type == "prompt_progress":
+                print("\rprocessing your request..", end="", flush=True)
+                processing_prompt = True
+
             if token_type in ["content", "reasoning"]:
+                if not first_token_received:
+                    # remove sending indicator using \r
+                    process_padding = 25 if processing_prompt else 0 # 25 is the length of "processing your request.."
+
+                    print("\r"+" "*process_padding, end="", flush=True)
+                    print("\r", end="", flush=True)
+
+                    processing_prompt = False
+                    first_token_received = True
+
                 print(content, end="", flush=True)
 
         print()
