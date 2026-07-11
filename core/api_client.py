@@ -143,7 +143,7 @@ class APIClient():
         # so that the AI is ready to respond right away when the user has finished
         # typing their message
         # (thanks to https://www.reddit.com/r/LocalLLaMA/comments/1uskb1g/speculative_cache_warming_warms_your_cache_while/ for the idea)
-        await self.start_prompt_warmup(context=[{"role": "system", "content": await self.manager.get_system_prompt()}])
+        await self.start_prompt_warmup(context=[{"role": "system", "content": await self.manager.get_system_prompt()}], notify=False)
 
         return True
 
@@ -306,7 +306,7 @@ class APIClient():
         except asyncio.CancelledError as e:
             # fully kill the connection because ive been debuggging this for like 5 hours and im tired
             # make it stop
-            self.manager.log("api", "Force closing HTTP connection due to unclean state..")
+            #self.manager.log("api", "Force closing HTTP connection due to unclean state..")
             await self.disconnect()
 
             self.cancel_request = False
@@ -429,7 +429,7 @@ class APIClient():
         except asyncio.CancelledError:
             # fully kill the connection because ive been debuggging this for like 5 hours and im tired
             # make it stop
-            self.manager.log("api", "Force closing HTTP connection due to unclean state..")
+            #self.manager.log("api", "Force closing HTTP connection due to unclean state..")
             await self.disconnect()
         except Exception as e:
             self.manager.log_error("Warmup request failed", e)
