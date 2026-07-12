@@ -1252,6 +1252,13 @@ async def clear_chat(user: str = Depends(require_auth)):
     global channel_instance
 
     await channel_instance.context.chat.clear()
+
+    # Broadcast the update to all connected clients so the UI clears immediately
+    await manager.broadcast({
+        "type": "messages_updated",
+        "messages": await channel_instance.context.chat.get()
+    })
+
     return {"success": True}
 
 @app.post("/chat/delete")
