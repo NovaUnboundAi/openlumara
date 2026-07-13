@@ -455,7 +455,7 @@ class Chat:
         num_tokens = 0
         _messages = messages or await self.channel.context.get(system_prompt=True, end_prompt=True)
 
-        if not _messages:
+        if not _messages or isinstance(_messages, core.api.APIError):
             return 0
 
         # only set the tiktoken encoder if the model changed
