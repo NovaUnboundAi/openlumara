@@ -451,7 +451,9 @@ async function handleWebSocketMessage(data) {
         const msgWrapper = chat.querySelector(`[data-index="${data.index}"]`);
         if (msgWrapper) {
             msgWrapper.classList.remove('user-placeholder');
-            msgWrapper.querySelector('.message').removeChild(sending_status);
+            if (sending_status) {
+                msgWrapper.querySelector('.message').removeChild(sending_status);
+            }
         }
 
         // show typing indicator
@@ -526,7 +528,16 @@ async function handleWebSocketMessage(data) {
             return;
         }
         try {
-            renderAllMessages(data.messages, false);
+            if (data.chat_id && data.chat_id != currentChatId) {
+                // if an id was provided, and it's different from the current chat id, just load that chat
+                await updateSidebarActiveChat(data.chat_id);
+                await loadChat(data.chat_id);
+                await loadChats();
+                await scrollToActiveChat();
+            } else {
+                // otherwise just re-render the messages
+                renderAllMessages(data.messages, false);
+            }
 
             if (!catchingUpFromBuffer) {
                 // Clear streaming state - the chat structure has changed,

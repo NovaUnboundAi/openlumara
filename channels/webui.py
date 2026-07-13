@@ -936,7 +936,7 @@ async def send_message(request: Request, user: str = Depends(require_auth)):
     current_id = await channel_instance.context.chat.get_id()
     current_title = await channel_instance.context.chat.get_title()
 
-    await manager.broadcast({"type": "messages_updated", "messages": messages})
+    await manager.broadcast({"type": "messages_updated", "messages": messages, "chat_id": current_id})
     await manager.broadcast({"type": "stream_complete", "buffer": [], "index": next_index})
 
     return {
@@ -1775,8 +1775,6 @@ async def service_worker():
     file_list = ',\n    '.join(f'"{f}"' for f in files_to_cache)
     sw_code = sw_code.replace('{{VERSION}}', version)
     sw_code = sw_code.replace('{{FILE_LIST}}', f'{file_list}\n')
-
-    print(sw_code)
 
     return Response(
         content=sw_code,
