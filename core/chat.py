@@ -96,7 +96,7 @@ class Chat:
         now = datetime.datetime.utcnow().isoformat()
 
         self.data.append({
-            "id": str(ulid.ULID())[:8],
+            "id": str(ulid.ULID())[-8:], # so it turns out truncating the ULID from the front can lead to identical id's.. yikes
             "title": title,
             "category": category,
             "tags": [],
@@ -286,7 +286,7 @@ class Chat:
 
     async def get_id(self):
         if self.current is None:
-            return None
+            return await self.new()
 
         return self.data[self.current].get("id", None)
 

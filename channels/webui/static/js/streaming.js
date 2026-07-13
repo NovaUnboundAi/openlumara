@@ -280,25 +280,26 @@ async function finalizeStreamingUI(aiWrapper, aiMsgDiv) {
     }
 
     // Update chat info
-    try {
-        const chatResponse = await fetch('/chat/current');
-        const chatData = await chatResponse.json();
-        if (chatData.success && chatData.chat) {
-            currentChatId = chatData.chat.id;
-            updateChatTitleBar(chatData.chat.title, chatData.chat.tags || []);
+    await loadChats();
+    // try {
+    //     const chatResponse = await fetch('/chat/current');
+    //     const chatData = await chatResponse.json();
+    //     if (chatData.success && chatData.chat) {
+    //         currentChatId = chatData.chat.id;
+    //         updateChatTitleBar(chatData.chat.title, chatData.chat.tags || []);
 
-            // Update the sidebar chat item title so it reflects the auto-generated title
-            const sidebarItem = document.querySelector(`.chat-item[data-chat-id="${currentChatId}"]`);
-            if (sidebarItem) {
-                const titleEl = sidebarItem.querySelector('.chat-item-title');
-                if (titleEl) {
-                    titleEl.textContent = chatData.chat.title || 'New chat';
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Failed to update chat info", e);
-    }
+    //         // Update the sidebar chat item title so it reflects the auto-generated title
+    //         const sidebarItem = document.querySelector(`.chat-item[data-chat-id="${currentChatId}"]`);
+    //         if (sidebarItem) {
+    //             const titleEl = sidebarItem.querySelector('.chat-item-title');
+    //             if (titleEl) {
+    //                 titleEl.textContent = chatData.chat.title || 'New chat';
+    //             }
+    //         }
+    //     }
+    // } catch (e) {
+    //     console.error("Failed to update chat info", e);
+    // }
 
     // Final safety cleanup for processing indicators
     if (fancyProcessingIndicator) {

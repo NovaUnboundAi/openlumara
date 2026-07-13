@@ -7,6 +7,7 @@ let activeCategory = 'general'; // Default category
 let chatDataMap = new Map();
 
 let chatSearchInitialized = false;
+let isChatSwitching = false;
 
 function setupChatSearch() {
     if (chatSearchInitialized) return;

@@ -1,101 +1,83 @@
-const CACHE_NAME = 'openlumara-v{{VERSION}}';
+const CACHE_NAME = 'openlumara-{{VERSION}}';
 
 // Assets to precache (these get versioned by the backend)
-const PRECACHE_ASSETS = [
-    '/',
+const ASSETS_TO_CACHE = [
+    '/index.html',
+    '/static',
     '/manifest.json',
     '/icon-192.png',
     '/icon-512.png',
     '/sw.js?v={{VERSION}}', // Self-reference with version
 ];
 
+console.log('Service Worker loaded: {{VERSION}}');
+
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker with cache:', CACHE_NAME);
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('[SW] Precaching assets:', PRECACHE_ASSETS);
-                return cache.addAll(PRECACHE_ASSETS);
-            })
-            .then(() => {
-                console.log('[SW] Skipping waiting to activate immediately');
-                return self.skipWaiting();
-            })
-            .catch((err) => {
-                console.error('[SW] Install failed:', err);
-            })
-    );
+  console.log('Installing Service Worker...');
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log(`Caching ${ASSETS_TO_CACHE.length} assets...`);
+
+        return Promise.all(
+          ASSETS_TO_CACHE.map((url) => {
+            return fetch(url).then((response) => {
+              if (!response.ok) {
+                console.error(`Failed to fetch ${url}: ${response.status}`);
+                return null;
+              }
+              console.log(`Cached: ${url}`);
+              return cache.put(url, response);
+            }).catch((err) => {
+              console.error(`Error fetching ${url}:`, err.message);
+              return null;
+            });
+          })
+        ).then(() => {
+          console.log('Service Worker installed successfully');
+        });
+      })
+      .catch((err) => {
+        console.error('Installation failed:', err);
+      })
+  );
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating service worker');
-    event.waitUntil(
-        Promise.all([
-            // Clean up old caches
-            caches.keys().then((keys) => {
-                return Promise.all(
-                    keys
-                        .filter((key) => key !== CACHE_NAME)
-                        .map((key) => {
-                            console.log('[SW] Deleting old cache:', key);
-                            return caches.delete(key);
-                        })
-                );
-            }),
-            // Take control of all open clients
-            self.clients.claim()
-        ])
-    );
+  console.log('Activating Service Worker...');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      console.log(`Found ${cacheNames.length} cache(s):`, cacheNames);
+
+      const cachesToDelete = cacheNames.filter((name) => name !== CACHE_NAME);
+      console.log(`Deleting ${cachesToDelete.length} old cache(s):`, cachesToDelete);
+
+      return Promise.all(
+        cachesToDelete.map((name) => caches.delete(name))
+      );
+    })
+    .then(() => {
+      console.log('Service Worker activated');
+    })
+    .catch((err) => {
+      console.error('Activation failed:', err);
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
-    
-    // Only handle same-origin requests
-    if (url.origin !== location.origin) return;
-
-    // Navigation requests: Network First
-    if (event.request.mode === 'navigate') {
-        event.respondWith(
-            fetch(event.request)
-                .catch(() => {
-                    console.log('[SW] Network failed, serving from cache');
-                    return caches.match(event.request);
-                })
-        );
-        return;
-    }
-
-    // All other requests: Cache First, then Network
-    event.respondWith(
-        caches.match(event.request)
-            .then((cached) => {
-                const fetchPromise = fetch(event.request)
-                    .then((networkResponse) => {
-                        // Update cache with fresh response
-                        if (networkResponse.ok && event.request.method === 'GET') {
-                            const responseClone = networkResponse.clone();
-                            caches.open(CACHE_NAME).then((cache) => {
-                                cache.put(event.request, responseClone);
-                            });
-                        }
-                        return networkResponse;
-                    })
-                    .catch(() => {
-                        console.log('[SW] Network failed for:', url.pathname);
-                        return null;
-                    });
-
-                // Return cached if available, otherwise wait for network
-                return cached || fetchPromise;
-            })
-    );
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        if (response) {
+          // console.log(`Cache hit: ${event.request.url}`);
+          return response;
+        }
+        // console.log(`Cache miss, fetching: ${event.request.url}`);
+        return fetch(event.request);
+      })
+      .catch((err) => {
+        console.error(`Fetch failed for ${event.request.url}:`, err);
+      })
+  );
 });
-
-// Handle messages from client
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
-});
-

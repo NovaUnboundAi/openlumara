@@ -15,7 +15,7 @@ let sendQueue = [];
 /**
  * Send a message immediately if the socket is open, otherwise queue it.
  */
-function safeSocketSend(data) {
+async function safeSocketSend(data) {
     if (window.socket && window.socket.readyState === WebSocket.OPEN) {
         window.socket.send(JSON.stringify(data));
     } else {
@@ -26,7 +26,7 @@ function safeSocketSend(data) {
 /**
  * Drain the send queue by transmitting all queued messages over the WebSocket.
  */
-function drainSendQueue() {
+async function drainSendQueue() {
     if (!window.socket || window.socket.readyState !== WebSocket.OPEN) {
         return;
     }
@@ -43,7 +43,7 @@ function drainSendQueue() {
     }
 }
 
-function connectWebSocket() {
+async function connectWebSocket() {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = window.apiToken || '';
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
@@ -57,57 +57,57 @@ function connectWebSocket() {
         wsSocket = new WebSocket(wsUrl);
         window.socket = wsSocket;  // Keep global reference for send.js
     } catch (e) {
-        scheduleWsReconnect();
+        await scheduleWsReconnect();
         return;
     }
 
-    wsSocket.onopen = () => {
+    wsSocket.onopen = async () => {
         console.log('WebSocket connected');
         isWsConnected = true;
         wsReconnecting = false;
         showConnectionStatus('reconnected');
 
         // Drain any queued messages
-        drainSendQueue();
+        await drainSendQueue();
     };
 
-    wsSocket.onmessage = (event) => {
+    wsSocket.onmessage = async (event) => {
         try {
             const data = JSON.parse(event.data);
-            handleWebSocketMessage(data);
+            await handleWebSocketMessage(data);
         } catch (e) {
             console.error('Error parsing WebSocket message:', e);
         }
     };
 
-    wsSocket.onclose = (event) => {
+    wsSocket.onclose = async (event) => {
         if (!wsReconnecting) {
             console.log('WebSocket disconnected:', event.code, event.reason);
             wsSocket = null;
             window.socket = null;
             isWsConnected = false;
             showConnectionStatus('reconnecting');
-            scheduleWsReconnect();
+            await scheduleWsReconnect();
         }
     };
 
-    wsSocket.onerror = (error) => {
+    wsSocket.onerror = async (error) => {
         if (!wsReconnecting) {
             console.error('WebSocket error:', error);
         }
-        scheduleWsReconnect();
+        await scheduleWsReconnect();
     };
 }
 
-function scheduleWsReconnect() {
+async function scheduleWsReconnect() {
     console.log(`attempting to reconnect to websocket..`);
     wsReconnecting = true;
-    setTimeout(function () {
-        connectWebSocket();
+    setTimeout(async function () {
+        await connectWebSocket();
     }, 1000);
 }
 
-function handlePromptProgress(prog) {
+async function handlePromptProgress(prog) {
     let progressData = prog;
     try {
         if (typeof prog === 'string') {
@@ -174,7 +174,7 @@ function handlePromptProgress(prog) {
  * @param {Object} msg - The message object containing type and content (or tool_calls).
  * @param {boolean} isSimulated - If true, suppresses playback sounds (used for initial catch-up).
  */
-function processToken(msg, isSimulated = false) {
+async function processToken(msg, isSimulated = false) {
     const type = msg.type || 'content';
     const content = msg.content || '';
 
@@ -219,12 +219,12 @@ function processToken(msg, isSimulated = false) {
 
     // show ongoing prompt processing progress
     if (type === 'prompt_progress') {
-        handlePromptProgress(content);
+        await handlePromptProgress(content);
         return;
     }
 
     if (type === 'token_usage') {
-        updateTokenUsage(content);
+        await updateTokenUsage(content);
         return;
     }
 
@@ -233,9 +233,9 @@ function processToken(msg, isSimulated = false) {
     }
 
     if (!window._currentAiMsgDiv) {
-        createAiWrapper();
+        await createAiWrapper();
     } else if (window._currentAiWrapper && !window._currentAiWrapper.parentNode) {
-        insertBeforeTyping(window._currentAiWrapper);
+        await insertBeforeTyping(window._currentAiWrapper);
     }
 
     // Hide typing indicator when first token arrives (in case prompt_progress was skipped)
@@ -345,12 +345,12 @@ function processToken(msg, isSimulated = false) {
 // ketchup buffer
 // ketchup
 // yummy
-function processBuffer(buffer) {
+async function processBuffer(buffer) {
     if (!buffer.length) return;
 
     catchingUpFromBuffer = true;
 
-    function processNextBatch() {
+    async function processNextBatch() {
         let processed = 0;
 
         while (processed < BUFFER_BATCH_SIZE && buffer.length > 0) {
@@ -362,7 +362,7 @@ function processBuffer(buffer) {
             try {
                 // process the token as if we're streaming live
                 // (but we're not, this is a rapid simulation of a token stream that already happened)
-                processToken(token, true);
+                await processToken(token, true);
                 processed++;
             } catch (error) {
                 console.error('Token processing error:', error);
@@ -383,7 +383,7 @@ function processBuffer(buffer) {
     processNextBatch();
 }
 
-function handleWebSocketMessage(data) {
+async function handleWebSocketMessage(data) {
     if (data.type !== 'token') {
         console.log(data);
     }
@@ -392,22 +392,16 @@ function handleWebSocketMessage(data) {
     if (data.type === 'sync_state') {
         if (data.buffer.length > 0) {
             catchingUpFromBuffer = true;
-            loadChat(data.active_chat_id, catchingUpFromBuffer);
+            await loadChat(data.active_chat_id, catchingUpFromBuffer);
             createAiWrapper();
             isStreaming = true;
             isDataStreaming = true;
             setInputState(true, false, true);
 
             // process the buffer in batches so that we don't crash the browser
-            processBuffer(data.buffer);
+            await processBuffer(data.buffer);
         } else {
-            // Empty buffer — restore the current chat from the backend's state
-            // This ensures messages are displayed even when there's no active stream
-            if (data.active_chat_id) {
-                currentChatId = data.active_chat_id;
-            }
-            // Use restoreCurrentChat to properly sync the UI with the backend's current chat
-            restoreCurrentChat();
+            await loadChat(data.active_chat_id, false);
         }
         return;
     }
@@ -418,12 +412,13 @@ function handleWebSocketMessage(data) {
         if (isChatSwitching) return;
         isChatSwitching = true;
 
-        window.loadChat(data.chat_id, catchingUpFromBuffer, true).finally(() => {
+        await loadChat(data.chat_id, catchingUpFromBuffer, true).finally(async () => {
             isChatSwitching = false;
+            await loadChats();
+            await updateSidebarActiveChat(data.chat_id);
         });
         return;
     }
-
 
     if (data.type === 'user_message_added') {
         msgEl = handleNewMessage(data.message);
@@ -445,6 +440,9 @@ function handleWebSocketMessage(data) {
             window.upload_queue.wrappers = [];
             window.updateUploadQueueUI();
         }
+
+        // reload the chats so that the new chat title is immediately applied
+        await loadChats();
 
         return;
     }

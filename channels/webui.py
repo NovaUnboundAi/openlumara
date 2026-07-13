@@ -62,8 +62,24 @@ def generate_cache_version():
     # generate an sw.js cache version based on this file's last modified time
     # because bumping sw.js's version manually each time i update the webui
     # is a total pain and i don't want to deal with it
-    mtime = os.path.getmtime(__file__)
-    return f"v{int(mtime)}"
+
+    webui_folder = core.get_path("channels/webui")
+
+    # Get the latest modification time among all files in the folder
+    latest_mtime = os.path.getmtime(__file__)  # fallback to this file
+
+    for root, dirs, files in os.walk(webui_folder):
+        for file in files:
+            file_path = os.path.join(root, file)
+            try:
+                file_mtime = os.path.getmtime(file_path)
+                if file_mtime > latest_mtime:
+                    latest_mtime = file_mtime
+            except (OSError, FileNotFoundError):
+                # Skip files that can't be accessed
+                pass
+
+    return f"v{int(latest_mtime)}"
 
 # -----------------------------------------------------------------------------
 # FastAPI App Setup
@@ -1085,6 +1101,7 @@ async def list_chats(user: str = Depends(require_auth)):
         return {'chats': []}
 
     all_chats = await channel_instance.context.chat.get_all()
+
     chats = []
 
     for conv in all_chats:
@@ -1128,7 +1145,7 @@ async def load_chat(id: str, user: str = Depends(require_auth)):
     await channel_instance._set_as_active_channel()
 
     # prevent buggy frontend code from reloading the same chat more than once (ugh)
-    curr_chat_id = await channel_instance.context.chat.get_id()
+    curr_chat_id = await channel_instance.context.chat.get_id() or ""
 
     is_current_chat = id.strip() == curr_chat_id.strip()
     if is_current_chat:
@@ -1259,15 +1276,23 @@ async def new_chat(request: Request, user: str = Depends(require_auth)):
     await channel_instance._set_as_active_channel()
     data = await request.json() or {}
 
-    await channel_instance.context.chat.new(title=data.get('title'), category=data.get('category'), metadata=data.get('metadata'))
+    await channel_instance.context.chat.new(category=data.get('category'), metadata=data.get('metadata'))
 
-    return {
-        'success': True, 'chat': {
-            'id': await channel_instance.context.chat.get_id(),
-            'title': data.get('title', ''), 'category': data.get('category', ''),
-            'messages': [], 'metadata': data.get('metadata', {})
-        }
-    }
+    await manager.broadcast({
+        "type": "chat_switched",
+        "chat_id": await channel_instance.context.chat.get_id(),
+        "buffer": []
+    })
+
+    return {"success": True}
+
+    # return {
+    #     'success': True, 'chat': {
+    #         'id': await channel_instance.context.chat.get_id(),
+    #         'title': data.get('title', ''), 'category': data.get('category', ''),
+    #         'messages': [], 'metadata': data.get('metadata', {})
+    #     }
+    # }
 
 @app.post("/chat/clear")
 async def clear_chat(user: str = Depends(require_auth)):
