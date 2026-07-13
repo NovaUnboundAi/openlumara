@@ -32,7 +32,6 @@ import yaml
 import logging
 import io
 
-VERSION = "8.1.4"
 WEBUI_DIR = core.get_path("channels/webui")
 
 # ordered list of javascript files, to load in this exact order
@@ -58,6 +57,13 @@ MAX_ATTEMPTS = 5
 
 # Set of active Bearer tokens for API access
 ACTIVE_TOKENS: Set[str] = set()
+
+def generate_cache_version():
+    # generate an sw.js cache version based on this file's last modified time
+    # because bumping sw.js's version manually each time i update the webui
+    # is a total pain and i don't want to deal with it
+    mtime = os.path.getmtime(__file__)
+    return f"v{int(mtime)}"
 
 # -----------------------------------------------------------------------------
 # FastAPI App Setup
@@ -345,7 +351,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         manager.active_stream_task.cancel()
                     
                     # Create new chat
-                    new_id = await channel_instance.context.chat.new_chat()
+                    new_id = await channel_instance.context.chat.new()
                     manager.active_chat_id = new_id
                     
                     # Broadcast the switch
@@ -645,7 +651,7 @@ async def index(request: Request):
         {
             "request": request,
             "header_title": channel_instance.config.get("title"),
-            "version": VERSION,
+            "version": generate_cache_version(),
             "js_files": JS_FILES,
             "css_files": CSS_FILES,
             "require_login": bool(channel_instance.config.get("require_login"))
@@ -830,7 +836,9 @@ async def start_ai_stream_task(chat_id: str, payload_body: dict):
                     return
 
                 if isinstance(token_data, dict):
-                    if token_data.get("type") == "user_message":
+                    if token_data.get('type') == "user_message":
+                        # display user message using websocket broadcast
+                        # we do it via a token in the stream because this can be modified by module hooks (such as on_user_message)
                         try:
                             user_msg_payload = token_data.copy()
                             user_msg_payload['index'] = next_index
@@ -841,6 +849,9 @@ async def start_ai_stream_task(chat_id: str, payload_body: dict):
                             })
                         except Exception as e:
                             channel_instance.log("webui", f"error while sending user message: {core.detail_error(e)}")
+                            yield {"type": "error", "content": f"error while sending user message: {core.detail_error(e)}"}
+                            return
+
                     elif token_data.get('type') == 'error':
                         await manager.broadcast({
                             "type": "user_message_confirmed",
@@ -1721,7 +1732,7 @@ async def service_worker():
         sw_code = f.read()
 
     # Inject version into the file
-    sw_code = sw_code.replace('{{VERSION}}', VERSION)
+    sw_code = sw_code.replace('{{VERSION}}', generate_cache_version())
 
     return Response(
         content=sw_code,
