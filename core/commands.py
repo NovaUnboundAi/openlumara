@@ -424,13 +424,14 @@ class Commands:
                 lines.append(f"Model: {status['model'] or 'Not set'}")
                 lines.append(f"URL: {status['url']}")
 
-                lines.append("")
-                lines.append("== Context Size ==")
-                context_size = await self.channel.context.get_size()
-                ctx_string = ""
-                for key, value in context_size.items():
-                    ctx_string += f"{key}: {value}\n"
-                lines.append(ctx_string)
+                if self.channel.manager.API.connected:
+                    lines.append("")
+                    lines.append("== Context Size ==")
+                    context_size = await self.channel.context.get_size()
+                    ctx_string = ""
+                    for key, value in context_size.items():
+                        ctx_string += f"{key}: {value}\n"
+                    lines.append(ctx_string)
 
                 return "\n".join(lines)
             case "modules":

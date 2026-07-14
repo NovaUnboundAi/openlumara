@@ -258,6 +258,11 @@ class Channel:
                     return {"role": "assistant", "content": "BLANK"}
 
         # if not a command, send the message to the AI and return it's response
+        # reconnect if needed
+        result = await self.manager.API.attempt_connect()
+        if result is not True:
+            self.log("API", str(result))
+            return result
 
         # run module event hooks
         usr_msg_result = None
@@ -405,6 +410,13 @@ class Channel:
 
         # yield user message as a special token for display in UI's (because user message can be modified by module hooks)
         yield {"type": "user_message", "content": user_message.get("content")}
+        
+        # reconnect if needed
+        result = await self.manager.API.attempt_connect()
+        if result is not True:
+            yield {"type": "error", "content": str(result)}
+            self.log("API", str(result))
+            return
 
         # add user's message to context
         add_success = await self.context.chat.add(user_message)

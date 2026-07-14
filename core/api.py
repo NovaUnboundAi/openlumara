@@ -41,10 +41,6 @@ class APIClient():
         # self._warmup_queue = asyncio.Queue()
         # self._warmup_done = asyncio.Event()
 
-        self._connection_error = None
-        self._last_connection_attempt = None
-        self._connection_attempts = 0
-
         # used for insecure SSL connections
         self._httpx_client = None
 
@@ -55,7 +51,6 @@ class APIClient():
             return True
 
         self._model = core.config.get("model", "name")
-        self._connection_attempts += 1
         api_config = core.config.get("api", {})
 
         # infinite timeout
@@ -105,8 +100,6 @@ class APIClient():
             return APIError("Unknown error while attempting to connect", e)
 
         self.connected = True
-        self._connection_error = None
-        self._connection_attempts = 0
         self.supports_developer_role = core.config.get("api", "use_developer_role", default=False)
 
         if not silent:
@@ -121,6 +114,13 @@ class APIClient():
         # PROMPT WARMING DISABLED FOR NOW (it's extremely buggy and needs a few days of extra polish. it's causing race conditions all over the place)
         #await self.start_prompt_warmup(context=[{"role": "system", "content": await self.manager.get_system_prompt()}], notify=False)
 
+        return True
+    
+    async def attempt_connect(self):
+        """connect if disconnected, else just return True"""
+        if not self.connected:
+            return await self.connect()
+        
         return True
 
     def get_connection_status(self):
@@ -170,12 +170,10 @@ class APIClient():
 
             return APIError("Tried to send a blank request for some reason! This should NEVER happen. Notify the developer.")
 
-        if not self.connected:
-            # attempt to connect
-            connected = await self.connect(silent=True)
-            if connected is not True:
-                # thats an error
-                return connected
+        connected = await self.attempt_connect()
+        if connected is not True:
+            # thats an error
+            return connected
 
         if not core.config.get("model", {}).get("use_tools"):
             # allow switching tools off globally
@@ -411,11 +409,10 @@ class APIClient():
         self.cancel_request = False
 
         # attempt auto-reconnect once
-        if not self.connected:
-            reconnected = await self.connect()
-            if reconnected is not True:
-                # thats an error!
-                return reconnected
+        connected = await self.attempt_connect()
+        if connected is not True:
+            # thats an error!
+            return connected
 
         # wait for the system prompt warmup to finish if it's still running
         # if self._warmup_task and not self._warmup_task.done():
@@ -445,12 +442,11 @@ class APIClient():
         self.cancel_request = False
 
         # attempt auto-reconnect once
-        if not self.connected:
-            reconnected = await self.connect()
-            if reconnected is not True:
-                # that's an error
-                yield {"type": "error", "content": str(reconnected)}
-                return
+        connected = await self.attempt_connect()
+        if connected is not True:
+            # that's an error
+            yield {"type": "error", "content": str(reconnected)}
+            return
 
         # drain progress tokens while waiting for warmup to finish
         # DISABLED DUE TO INTRODUCING A MYRIAD OF BUGS (see my other comments in connect())

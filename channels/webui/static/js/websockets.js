@@ -208,8 +208,6 @@ async function processToken(msg, isSimulated = false) {
         <div class="api-error-message">${content}</div>
         </div>`;
 
-        console.log("reached");
-
         // Finalize the stream so the wrapper gets proper action buttons
         // if (window._currentAiWrapper) {
         //     finalizeStreamingUI(window._currentAiWrapper, window._currentAiMsgDiv);
@@ -424,7 +422,7 @@ async function handleWebSocketMessage(data) {
         msgEl.classList.add('user-placeholder');
 
         // show the message as a "placeholder" (sent to backend but not sent to API yet)
-        sending_status = document.createElement('span');
+        let sending_status = document.createElement('span');
         sending_status.className = 'placeholder-status';
         sending_status.textContent = 'Sending...';
         msgEl.querySelector('.message').appendChild(sending_status);
@@ -451,9 +449,8 @@ async function handleWebSocketMessage(data) {
         const msgWrapper = chat.querySelector(`[data-index="${data.index}"]`);
         if (msgWrapper) {
             msgWrapper.classList.remove('user-placeholder');
-            if (sending_status) {
-                msgWrapper.querySelector('.message').removeChild(sending_status);
-            }
+            const statusEl = msgWrapper.querySelector('.message').querySelector('.placeholder-status');
+            if (statusEl) statusEl.remove();
         }
 
         // show typing indicator
