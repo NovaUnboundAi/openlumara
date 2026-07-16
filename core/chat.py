@@ -95,8 +95,9 @@ class Chat:
         """create a new chat"""
         now = datetime.datetime.utcnow().isoformat()
 
+        new_id = str(ulid.ULID())[-8:] # so it turns out truncating the ULID from the front can lead to identical id's.. yikes
         self.data.append({
-            "id": str(ulid.ULID())[-8:], # so it turns out truncating the ULID from the front can lead to identical id's.. yikes
+            "id":  new_id,
             "title": title,
             "category": category,
             "tags": [],
@@ -118,7 +119,7 @@ class Chat:
         # start a system prompt warmup so that the response is instant (if the user types slowly... lol)
         #await self.channel.manager.API.start_prompt_warmup(notify=core.debug)
 
-        return True
+        return new_id
     async def clear(self):
         if self.current is None:
             return False

@@ -68,13 +68,13 @@ function connectWebSocket() {
         showConnectionStatus('reconnected');
 
         // sync back up with the backend
-        try {
-            wsSocket.send(JSON.stringify({
-                type: 'reload_messages'
-            }));
-        } catch (e) {
-            console.warn('Failed to send message reload request:', e);
-        }
+        // try {
+        //     wsSocket.send(JSON.stringify({
+        //         type: 'reload_messages'
+        //     }));
+        // } catch (e) {
+        //     console.warn('Failed to send message reload request:', e);
+        // }
 
         // Drain any queued messages
         drainSendQueue();
